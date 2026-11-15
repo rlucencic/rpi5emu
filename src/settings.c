@@ -184,6 +184,21 @@ void emu_setting_set_str(const char *ns, const char *key, const char *value)
     pthread_mutex_unlock(&s_lock);
 }
 
+void emu_setting_erase(const char *ns, const char *key)
+{
+    pthread_mutex_lock(&s_lock);
+    load();
+    entry_t *e = find(ns, key);
+    if (e != NULL) {
+        free(e->ns);
+        free(e->key);
+        free(e->value);
+        *e = s_entries[--s_count];
+        save();
+    }
+    pthread_mutex_unlock(&s_lock);
+}
+
 void emu_setting_set_int(const char *ns, const char *key, int32_t value)
 {
     char text[16];

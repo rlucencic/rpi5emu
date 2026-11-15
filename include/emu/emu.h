@@ -142,6 +142,12 @@ const emu_machine_t *emu_machine(void);
 /* The "SD card": roms/ and the disk folders (no trailing slash) */
 const char *emu_data_dir(void);
 
+/* A ROM file from the data folder's roms/ (the name as given, else in
+ * capitals: as copied from a FAT card), up to max bytes into buf: the bytes
+ * read, -1 if there's none
+ */
+long emu_rom_read(const char *name, void *buf, size_t max);
+
 typedef enum {
     EMU_SETUP,                  /* not started (start() failed) */
     EMU_RUNNING,

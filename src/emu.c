@@ -134,6 +134,28 @@ const char *emu_data_dir(void)
     return s_data_dir;
 }
 
+long emu_rom_read(const char *name, void *buf, size_t max)
+{
+    char path[1400];
+    snprintf(path, sizeof(path), "%s/roms/%s", s_data_dir, name);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        for (char *p = path + strlen(path) - strlen(name); *p; p++) {
+            *p = (*p >= 'a' && *p <= 'z') ? *p - 32 : *p;
+        }
+        f = fopen(path, "rb");
+    }
+    if (f == NULL) {
+        return -1;
+    }
+    long n = (long)fread(buf, 1, max, f);
+    fclose(f);
+    if (n > 0) {
+        EMU_LOGI(TAG, "ROM %s", path);
+    }
+    return n;
+}
+
 bool emu_started(void)
 {
     return s_started;

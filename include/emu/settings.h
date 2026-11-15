@@ -17,6 +17,7 @@ bool emu_setting_get_str(const char *ns, const char *key, char *buf, size_t len)
 
 void emu_setting_set_int(const char *ns, const char *key, int32_t value);
 void emu_setting_set_str(const char *ns, const char *key, const char *value);
+void emu_setting_erase(const char *ns, const char *key);
 
 /* The file's path */
 const char *emu_settings_path(void);
