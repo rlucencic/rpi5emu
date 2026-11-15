@@ -243,7 +243,8 @@ static void page_main(void)
     const emu_machine_t *m = emu_machine();
     char line[1400];
     text(F_BIG, 32, 22, C_TEXT, m->name);
-    snprintf(line, sizeof(line), "Data folder %s", emu_data_dir());
+    char shown[1200];
+    snprintf(line, sizeof(line), "Data folder %s", emu_short_path(emu_data_dir(), shown, sizeof(shown)));
     fit(F_SMALL, line, 600, line, sizeof(line));
     text(F_SMALL, 32, 66, C_DIM, line);
     if (emu_drive_info()[0]) {
@@ -318,7 +319,9 @@ static void page_disks(void)
     text(F_BIG, 32, 22, C_TEXT, d->title ? d->title : "Disks");
     fit(F_SMALL, d->description ? d->description : "", CANVAS_W - 64, line, sizeof(line));
     text(F_SMALL, 32, 66, C_DIM, line);
-    snprintf(line, sizeof(line), "Images in %s (copy them there, or drop them on the window)", disks_folder());
+    char shown[1200];
+    snprintf(line, sizeof(line), "Images in %s (copy them there, or drop them on the window)",
+             emu_short_path(disks_folder(), shown, sizeof(shown)));
     fit(F_SMALL, line, CANVAS_W - 64, line, sizeof(line));
     text(F_SMALL, 32, 88, C_DIM, line);
 
@@ -391,10 +394,11 @@ static void page_images(void)
 {
     const disks_config_t *d = disks_config();
     char line[1400];
+    char shown[1200];
     snprintf(line, sizeof(line), "Into %s", d->drive_names[ui.drive]);
     text(F_BIG, 32, 22, C_TEXT, line);
     snprintf(line, sizeof(line), "%d image%s in %s", ui.image_count, ui.image_count == 1 ? "" : "s",
-             disks_folder());
+             emu_short_path(disks_folder(), shown, sizeof(shown)));
     fit(F_SMALL, line, CANVAS_W - 64, line, sizeof(line));
     text(F_SMALL, 32, 66, C_DIM, line);
     fill(20, LIST_TOP - 10, CANVAS_W - 40, LIST_ROWS * LIST_ROW + 20, C_CARD);

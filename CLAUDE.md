@@ -54,8 +54,9 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 - ROMs on the Pi: `~/rpi5emu/roms` (copied from the esp32 projects' `roms/`,
   not in git).
 - Driving it: `tools/console.sh 'i' 'T 10 PRINT 1\n' @4 's /tmp/x.png'`
-  (the machine's picture, then `scp`), `tools/capture.sh out.png` (the
-  window as shown, the setup screen too; xwd here), `setup` and `t x y`
+  (the machine's picture, then `scp`), `window /tmp/w.png` (the window as
+  drawn, the setup screen too: headless works), `tools/capture.sh
+  out.png` (a forwarded window as shown here; xwd), `setup` and `t x y`
   (the setup screen; Start is `t 900 554`, Disks `t 112 554`, the first
   row's buttons at y 167), `curl http://robert-pi5.local:8080/api/status`.
 - Debugging: gdb on the Pi, or `gdb-multiarch` here with `target remote |
@@ -109,6 +110,16 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   prog > log &` keeps the SSH session open (the `&&` list's subshell holds
   its output); `(cd dir && exec nohup prog) > log 2>&1 < /dev/null &`
   doesn't (`tools/pi.sh headless`).
+- **`pi.sh` needs the Pi's copies to be clones once a repo has a remote**:
+  it clones a sibling that's missing, and a plain folder in its place (an
+  earlier rsync) made the clone fail and `set -e` stop the script before
+  the build: the old program ran and looked like a missing feature. Turn
+  such a folder into a clone (`git init`, `remote add`, `fetch`, `reset
+  --hard origin/main`: the build folder stays) and check `pi.sh`'s exit
+  status, not only its output.
+- **README pictures without private paths**: the setup screen and the web
+  page show the home folder as `~` (`emu_short_path()`); screenshots go
+  from the machine (`s`) or the window (`window`), headless.
 - **Key events in one frame**: the IIGS lost Control's key-up when it came
   in the same frame as Reset's (Control stayed down, letters became control
   characters): console keys a frame apart (`@0.3`).

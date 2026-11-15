@@ -63,6 +63,7 @@ static const char *const s_help =
     "                   without a name, + for a new blank disk\n"
     "d                  the drives\n"
     "s [file.png]       screenshot (the machine's picture)\n"
+    "window [file.png]  the window as it's drawn (the setup screen too)\n"
     "c [<row> <n>]      the setup choices, or choose one\n"
     "status             the status as JSON\n"
     "v [0-100|m]        volume, or mute / unmute\n"
@@ -169,6 +170,14 @@ static void execute(char *line)
         static char buf[32768];
         emu_status_json(buf, sizeof(buf));
         emu_console_printf("%s\n", buf);
+    } else if (strncmp(line, "window", 6) == 0 && (line[6] == 0 || line[6] == ' ')) {
+        char made[1200];
+        const char *file = line + 6 + strspn(line + 6, " ");
+        if (emu_window_shot(file, made, sizeof(made))) {
+            emu_console_printf("window %s\n", made);
+        } else {
+            emu_console_printf("no picture of the window\n");
+        }
     } else if (strcmp(line, "setup") == 0) {
         emu_ui_toggle();
     } else if (line[0] == 't' && line[1] == ' ') {

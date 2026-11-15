@@ -204,9 +204,9 @@ static void info_get(req_t *r)
     emu_json_str(&j, "host", "Pi");
     emu_json_str(&j, "storage", "data folder");
     emu_json_str(&j, "storage_title", "In the data folder");
-    char about[1400];
+    char about[1400], shown[1200];
     snprintf(about, sizeof(about), "The emulator on the Raspberry Pi (%s), and the disk images in its data folder, %s/%s.",
-             hostname, emu_data_dir(), m->disks ? disks_config()->folder : "");
+             hostname, emu_short_path(emu_data_dir(), shown, sizeof(shown)), m->disks ? disks_config()->folder : "");
     emu_json_str(&j, "about", about);
     emu_json_bool(&j, "script", m->web_script != NULL);
     emu_json_object(&j, "disks");

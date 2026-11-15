@@ -53,8 +53,18 @@ void ui_draw(int width, int height);
 /* web.c: the boards' web page and API on <port> (0: none) */
 void emu_web_start(int port);
 
+/* A path as shown to people: the home folder as "~" (screenshots and the
+ * web page without the user's name)
+ */
+const char *emu_short_path(const char *path, char *buf, size_t len);
+/* The window as it's drawn now (the setup screen too), as a PNG: through
+ * the main thread; false if it couldn't
+ */
+bool emu_window_shot(const char *path, char *made, size_t len);
+
 /* console.c */
 void emu_console_start(int port, bool use_stdin);
 
-/* png.c: RGB565 pixels as an 8-bit RGB PNG */
+/* png.c: RGB565 pixels as an 8-bit RGB PNG; 8-bit RGB rows as one */
 bool emu_write_png(const char *path, const uint16_t *pixels, int width, int height);
+bool emu_write_png_rgb(const char *path, const void *rgb, int width, int height, int pitch);

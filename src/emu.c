@@ -740,9 +740,9 @@ static void draw_text(const char *text, int ww, int wh)
     SDL_SetRenderScale(s_renderer, 1, 1);
 }
 
-static void draw(void)
+/* The picture (or the message) into the renderer, not shown yet */
+static void draw_contents(void)
 {
-    s_redraw = false;
     int ww, wh;
     SDL_GetRenderOutputSize(s_renderer, &ww, &wh);
     SDL_SetRenderDrawColor(s_renderer, 0, 0, 0, 255);
@@ -760,6 +760,12 @@ static void draw(void)
     if (message[0] && !s_started) {
         draw_text(message, ww, wh);
     }
+}
+
+static void draw(void)
+{
+    s_redraw = false;
+    draw_contents();
     SDL_RenderPresent(s_renderer);
 }
 
@@ -791,25 +797,114 @@ static void shot_fn(void *arg)
     }
 }
 
+/* <data>/screenshots/<machine><kind>-<n>.png, the next free n */
+static void shot_name(const char *kind, char *name, size_t len)
+{
+    char dir[1100];
+    snprintf(dir, sizeof(dir), "%s/screenshots", s_data_dir);
+    mkdir(dir, 0755);
+    char machine[64];
+    snprintf(machine, sizeof(machine), "%s", M->short_name ? M->short_name : "machine");
+    for (char *p = machine; *p; p++) {
+        *p = (*p >= 'A' && *p <= 'Z') ? *p + 32 : (*p == ' ' || *p == '/') ? '-' : *p;
+    }
+    struct stat st;
+    for (int n = 1; n < 100000; n++) {
+        snprintf(name, len, "%s/%s%s-%04d.png", dir, machine, kind, n);
+        if (stat(name, &st) != 0) {
+            break;
+        }
+    }
+}
+
+const char *emu_short_path(const char *path, char *buf, size_t len)
+{
+    const char *home = getenv("HOME");
+    size_t n = home ? strlen(home) : 0;
+    if (n > 1 && strncmp(path, home, n) == 0 && (path[n] == '/' || path[n] == 0)) {
+        snprintf(buf, len, "~%s", path + n);
+    } else {
+        snprintf(buf, len, "%s", path);
+    }
+    return buf;
+}
+
+/* ---- The window as a picture (the console's "window") ---- */
+
+typedef struct {
+    const char *path;
+    bool ok, done;
+} window_shot_t;
+
+static pthread_mutex_t s_wshot_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t s_wshot_cond = PTHREAD_COND_INITIALIZER;
+
+/* (the main thread) */
+static void window_shot(window_shot_t *w)
+{
+    int ww, wh;
+    SDL_GetRenderOutputSize(s_renderer, &ww, &wh);
+    if (ui_is_open()) {
+        ui_draw(ww, wh);
+    } else {
+        draw_contents();
+    }
+    SDL_Surface *s = SDL_RenderReadPixels(s_renderer, NULL);
+    SDL_Surface *rgb = s ? SDL_ConvertSurface(s, SDL_PIXELFORMAT_RGB24) : NULL;
+    bool ok = rgb && emu_write_png_rgb(w->path, rgb->pixels, rgb->w, rgb->h, rgb->pitch);
+    SDL_DestroySurface(rgb);
+    SDL_DestroySurface(s);
+    SDL_RenderPresent(s_renderer);
+    pthread_mutex_lock(&s_wshot_lock);
+    w->ok = ok;
+    w->done = true;
+    pthread_cond_broadcast(&s_wshot_cond);
+    pthread_mutex_unlock(&s_wshot_lock);
+}
+
+static Uint32 s_ui_event;
+
+bool emu_window_shot(const char *path, char *made, size_t len)
+{
+    char name[1200];
+    if (path == NULL || path[0] == 0) {
+        shot_name("-window", name, sizeof(name));
+        path = name;
+    }
+    window_shot_t w = { path, false, false };
+    SDL_Event e = { .type = s_ui_event };
+    e.user.code = 3;
+    e.user.data1 = &w;
+    if (!SDL_PushEvent(&e)) {
+        return false;
+    }
+    struct timespec until;
+    clock_gettime(CLOCK_REALTIME, &until);
+    until.tv_sec += 5;
+    pthread_mutex_lock(&s_wshot_lock);
+    while (!w.done) {
+        if (pthread_cond_timedwait(&s_wshot_cond, &s_wshot_lock, &until) != 0) {
+            break;
+        }
+    }
+    bool done = w.done, ok = w.ok;
+    pthread_mutex_unlock(&s_wshot_lock);
+    if (!done) {
+        /* the main thread still has it: it mustn't write into this frame */
+        EMU_LOGE(TAG, "the window didn't answer: quitting would be safest");
+        return false;
+    }
+    if (made) {
+        snprintf(made, len, "%s", ok ? path : "");
+    }
+    return ok;
+}
+
 bool emu_screenshot(const char *path, char *made, size_t len)
 {
     char name[1200];
     if (path == NULL || path[0] == 0) {
-        char dir[1100];
-        snprintf(dir, sizeof(dir), "%s/screenshots", s_data_dir);
-        mkdir(dir, 0755);
-        char machine[64];
-        snprintf(machine, sizeof(machine), "%s", M->short_name ? M->short_name : "machine");
-        for (char *p = machine; *p; p++) {
-            *p = (*p >= 'A' && *p <= 'Z') ? *p + 32 : (*p == ' ' || *p == '/') ? '-' : *p;
-        }
-        struct stat st;
-        for (int n = 1; n < 100000; n++) {
-            snprintf(name, sizeof(name), "%s/%s-%04d.png", dir, machine, n);
-            if (stat(name, &st) != 0) {
-                break;
-            }
-        }
+        shot_name("", name, sizeof(name));
         path = name;
     }
     /* From the machine itself, held between frames: the picture as it is now
@@ -905,7 +1000,6 @@ static void ui_toggle(void)
     }
 }
 
-static Uint32 s_ui_event;               /* the console's setup screen commands */
 
 void emu_ui_click(int x, int y)
 {
@@ -1524,6 +1618,8 @@ static void handle_event(SDL_Event *e)
     if (e->type == s_ui_event) {
         if (e->user.code == 1) {
             ui_click((float)(intptr_t)e->user.data1, (float)(intptr_t)e->user.data2);
+        } else if (e->user.code == 3) {
+            window_shot(e->user.data1);
         } else {
             ui_toggle();
         }
