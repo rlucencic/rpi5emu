@@ -14,6 +14,7 @@
 #include "emu/emu.h"
 #include "emu/log.h"
 #include "emu/settings.h"
+#include "emu_internal.h"
 
 #define MAX_IMAGES  5000
 
@@ -182,7 +183,7 @@ bool disks_insert(int drive, const char *name)
     }
     snprintf(s_names[drive], DISKS_NAME_LEN, "%s", name);
     remember(drive);
-    EMU_LOGI(TAG, "%s: %s", s_cfg.drive_names[drive], name);
+    EMU_LOGI(TAG, "%s%s %s", s_cfg.drive_names[drive], emu_drive_colon(s_cfg.drive_names[drive]), name);
     return true;
 }
 

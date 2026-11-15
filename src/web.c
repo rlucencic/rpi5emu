@@ -387,7 +387,8 @@ static void drive_post(req_t *r)
         text(r, "409 Conflict", "The machine couldn't take it");
         return;
     }
-    EMU_LOGI(TAG, "%s: its disk's offer taken", disks_config()->drive_names[d]);
+    const char *drive = disks_config()->drive_names[d];
+    EMU_LOGI(TAG, "%s%s its disk's offer taken", drive, emu_drive_colon(drive));
     text(r, "200 OK", "OK");
 }
 

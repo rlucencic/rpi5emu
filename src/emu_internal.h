@@ -5,6 +5,16 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
+
+/* The colon to print after a drive's name, none when the name ends in one
+ * (DF0:, C:, D1:)
+ */
+static inline const char *emu_drive_colon(const char *drive_name)
+{
+    size_t n = strlen(drive_name);
+    return n > 0 && drive_name[n - 1] == ':' ? "" : ":";
+}
 
 /* emu.c */
 bool emu_started(void);

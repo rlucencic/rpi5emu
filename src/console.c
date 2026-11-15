@@ -81,20 +81,21 @@ typedef struct {
 static void disk_command(void *arg)
 {
     const disk_cmd_t *c = arg;
+    const char *drive = disks_config()->drive_names[c->drive];
     char made[DISKS_NAME_LEN];
     if (c->name[0] == 0) {
         disks_eject(c->drive);
-        emu_console_printf("%s empty\n", disks_config()->drive_names[c->drive]);
+        emu_console_printf("%s empty\n", drive);
     } else if (strcmp(c->name, "+") == 0) {
         if (disks_create(c->drive, disks_default_size(c->drive), made, sizeof(made))) {
-            emu_console_printf("%s: new %s\n", disks_config()->drive_names[c->drive], made);
+            emu_console_printf("%s%s new %s\n", drive, emu_drive_colon(drive), made);
         } else {
             emu_console_printf("can't make a blank disk\n");
         }
     } else if (disks_insert(c->drive, c->name)) {
-        emu_console_printf("%s: %s\n", disks_config()->drive_names[c->drive], c->name);
+        emu_console_printf("%s%s %s\n", drive, emu_drive_colon(drive), c->name);
     } else {
-        emu_console_printf("%s doesn't go into %s\n", c->name, disks_config()->drive_names[c->drive]);
+        emu_console_printf("%s doesn't go into %s\n", c->name, drive);
     }
 }
 
