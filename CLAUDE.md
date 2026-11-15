@@ -123,6 +123,13 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 - **Key events in one frame**: the IIGS lost Control's key-up when it came
   in the same frame as Reset's (Control stayed down, letters became control
   characters): console keys a frame apart (`@0.3`).
+- **Machines running at once share one settings file**: each wrote the
+  whole file from its own copy through the same `settings.ini.tmp`, so one
+  rename took another's file away ("can't write settings.ini") and the
+  last to save undid the others' changes (8 processes setting 200 keys
+  each: 2793 of 3200 values lost). A change now reads the file again under
+  a lock on its folder (`flock`) and writes through a temporary file of
+  its own (`mkstemp`): none lost. Reads come from memory.
 - Pipewire on the Pi without a monitor plays into `auto_null`: the sound
   runs (the stream is there) but nothing is heard.
 

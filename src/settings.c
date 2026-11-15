@@ -2,12 +2,20 @@
  * Settings in ~/.config/rpi5emu/settings.ini: "[section]" lines, then
  * "key=value" lines (the value is the rest of the line). Kept in memory,
  * the whole file written again at each change.
+ *
+ * Several of the family's programs may run at once and share the file: a
+ * change takes a lock on the file's folder (flock), reads the file again,
+ * makes the change and writes it through a temporary file of its own, so
+ * no program's change undoes another's. Reads come from memory: what this
+ * program read last, its own changes included.
  */
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include "emu/log.h"
@@ -68,23 +76,21 @@ static void put(const char *ns, const char *key, const char *value)
     s_entries[s_count++] = (entry_t){ strdup(ns), strdup(key), strdup(value) };
 }
 
-static void load(void)
+/* The file as it is now, in place of what was read before (none there yet:
+ * what's in memory stays)
+ */
+static void read_file(void)
 {
-    if (s_loaded) {
-        return;
-    }
-    s_loaded = true;
-    const char *xdg = getenv("XDG_CONFIG_HOME");
-    if (xdg != NULL && xdg[0] == '/') {
-        snprintf(s_path, sizeof(s_path), "%s/rpi5emu/settings.ini", xdg);
-    } else {
-        const char *home = getenv("HOME");
-        snprintf(s_path, sizeof(s_path), "%s/.config/rpi5emu/settings.ini", home ? home : ".");
-    }
     FILE *f = fopen(s_path, "r");
     if (f == NULL) {
         return;
     }
+    for (int i = 0; i < s_count; i++) {
+        free(s_entries[i].ns);
+        free(s_entries[i].key);
+        free(s_entries[i].value);
+    }
+    s_count = 0;
     char line[2048], ns[2048] = "";
     while (fgets(line, sizeof(line), f) != NULL) {
         line[strcspn(line, "\r\n")] = 0;
@@ -106,6 +112,55 @@ static void load(void)
     fclose(f);
 }
 
+static void load(void)
+{
+    if (s_loaded) {
+        return;
+    }
+    s_loaded = true;
+    const char *xdg = getenv("XDG_CONFIG_HOME");
+    if (xdg != NULL && xdg[0] == '/') {
+        snprintf(s_path, sizeof(s_path), "%s/rpi5emu/settings.ini", xdg);
+    } else {
+        const char *home = getenv("HOME");
+        snprintf(s_path, sizeof(s_path), "%s/.config/rpi5emu/settings.ini", home ? home : ".");
+    }
+    read_file();
+}
+
+/* (under s_lock) The file read again under the lock on its folder, held
+ * until end_change(): -1 if the folder can't be locked (then the change
+ * goes ahead as before, unguarded)
+ */
+static int begin_change(void)
+{
+    load();
+    make_dirs(s_path);
+    char dir[sizeof(s_path)];
+    snprintf(dir, sizeof(dir), "%s", s_path);
+    char *slash = strrchr(dir, '/');
+    if (slash != NULL) {
+        *slash = 0;
+    }
+    int fd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    while (fd >= 0 && flock(fd, LOCK_EX) != 0) {
+        if (errno != EINTR) {
+            EMU_LOGW(TAG, "can't lock %s: %s", dir, strerror(errno));
+            close(fd);
+            fd = -1;
+        }
+    }
+    read_file();
+    return fd;
+}
+
+static void end_change(int fd)
+{
+    if (fd >= 0) {
+        close(fd); /* the lock goes with it */
+    }
+}
+
 static int compare_entries(const void *a, const void *b)
 {
     const entry_t *x = a, *y = b;
@@ -115,14 +170,20 @@ static int compare_entries(const void *a, const void *b)
 
 static void save(void)
 {
-    make_dirs(s_path);
+    /* a temporary file of this program's own: settings.ini.XXXXXX */
     char tmp[sizeof(s_path) + 8];
-    snprintf(tmp, sizeof(tmp), "%s.tmp", s_path);
-    FILE *f = fopen(tmp, "w");
+    snprintf(tmp, sizeof(tmp), "%s.XXXXXX", s_path);
+    int fd = mkstemp(tmp);
+    FILE *f = fd >= 0 ? fdopen(fd, "w") : NULL;
     if (f == NULL) {
-        EMU_LOGW(TAG, "can't write %s: %s", tmp, strerror(errno));
+        EMU_LOGW(TAG, "can't write %s: %s", s_path, strerror(errno));
+        if (fd >= 0) {
+            close(fd);
+            unlink(tmp);
+        }
         return;
     }
+    fchmod(fd, 0644);
     qsort(s_entries, s_count, sizeof(entry_t), compare_entries);
     const char *ns = NULL;
     for (int i = 0; i < s_count; i++) {
@@ -167,7 +228,6 @@ bool emu_setting_get_int(const char *ns, const char *key, int32_t *value)
 void emu_setting_set_str(const char *ns, const char *key, const char *value)
 {
     pthread_mutex_lock(&s_lock);
-    load();
     /* No line breaks in a value: the file is one per line */
     char clean[2048];
     snprintf(clean, sizeof(clean), "%s", value ? value : "");
@@ -176,18 +236,20 @@ void emu_setting_set_str(const char *ns, const char *key, const char *value)
             *p = ' ';
         }
     }
+    int lock = begin_change();
     entry_t *e = find(ns, key);
     if (e == NULL || strcmp(e->value, clean) != 0) {
         put(ns, key, clean);
         save();
     }
+    end_change(lock);
     pthread_mutex_unlock(&s_lock);
 }
 
 void emu_setting_erase(const char *ns, const char *key)
 {
     pthread_mutex_lock(&s_lock);
-    load();
+    int lock = begin_change();
     entry_t *e = find(ns, key);
     if (e != NULL) {
         free(e->ns);
@@ -196,6 +258,7 @@ void emu_setting_erase(const char *ns, const char *key)
         *e = s_entries[--s_count];
         save();
     }
+    end_change(lock);
     pthread_mutex_unlock(&s_lock);
 }
 
