@@ -1,0 +1,353 @@
+/*
+ * Disk images in a folder of the data folder, for the machine's drives (as
+ * esp32emu's disks.c on the SD card); the inserted ones remembered in the
+ * settings (the section is the machine's nvs_namespace).
+ */
+#include <ctype.h>
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <sys/stat.h>
+#include "emu/disks.h"
+#include "emu/emu.h"
+#include "emu/log.h"
+#include "emu/settings.h"
+
+#define MAX_IMAGES  5000
+
+static const char *TAG = "disks";
+
+static disks_config_t s_cfg;
+static char s_folder[1024];
+static bool s_ready;
+static char s_names[DISKS_MAX_DRIVES][DISKS_NAME_LEN];
+static volatile uint8_t s_forget;       /* drives the machine ejected, to save */
+
+static bool has_extension(const char *name, const char *ext)
+{
+    size_t len = strlen(name), elen = strlen(ext);
+    return len > elen && strcasecmp(name + len - elen, ext) == 0;
+}
+
+static const char *base_name(const char *name)
+{
+    const char *slash = strrchr(name, '/');
+    return slash && slash[1] ? slash + 1 : name;
+}
+
+static bool is_image(const char *name)
+{
+    name = base_name(name);
+    if (name[0] == '.') {
+        return false;
+    }
+    for (const char *const *e = s_cfg.extensions; e && *e; e++) {
+        if (has_extension(name, *e)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void remember(int drive)
+{
+    char key[8] = "disk_a";
+    key[5] = 'a' + drive;
+    emu_setting_set_str(s_cfg.nvs_namespace, key, s_names[drive]);
+}
+
+/* The image's path: the name in the folder, or the path as it is */
+static void image_path(const char *name, char *path, size_t len)
+{
+    if (name[0] == '/') {
+        snprintf(path, len, "%s", name);
+    } else {
+        snprintf(path, len, "%s/%s", s_folder, name);
+    }
+}
+
+bool disks_init(const disks_config_t *config)
+{
+    s_cfg = *config;
+    if (s_cfg.drives > DISKS_MAX_DRIVES) {
+        s_cfg.drives = DISKS_MAX_DRIVES;
+    }
+    snprintf(s_folder, sizeof(s_folder), "%s/%s", emu_data_dir(), s_cfg.folder);
+    struct stat st;
+    if (stat(s_folder, &st) != 0 && mkdir(s_folder, 0777) != 0) {
+        EMU_LOGW(TAG, "can't make %s", s_folder);
+        return false;
+    }
+    s_ready = true;
+    return true;
+}
+
+const disks_config_t *disks_config(void)
+{
+    return &s_cfg;
+}
+
+bool disks_ready(void)
+{
+    return s_ready;
+}
+
+void disks_restore(void)
+{
+    if (!s_ready) {
+        return;
+    }
+    for (int d = 0; d < s_cfg.drives; d++) {
+        char key[8] = "disk_a";
+        key[5] = 'a' + d;
+        char name[DISKS_NAME_LEN];
+        if (emu_setting_get_str(s_cfg.nvs_namespace, key, name, sizeof(name)) && name[0]) {
+            if (!disks_insert(d, name)) {
+                EMU_LOGW(TAG, "%s %s is gone", s_cfg.drive_names[d], name);
+            }
+        }
+    }
+}
+
+static int compare_names(const void *a, const void *b)
+{
+    return strcasecmp(*(char *const *)a, *(char *const *)b);
+}
+
+int disks_list(char ***names)
+{
+    *names = NULL;
+    DIR *dir = s_ready ? opendir(s_folder) : NULL;
+    if (dir == NULL) {
+        return 0;
+    }
+    char **list = malloc(MAX_IMAGES * sizeof(char *));
+    int n = 0;
+    struct dirent *e;
+    while (list != NULL && n < MAX_IMAGES && (e = readdir(dir)) != NULL) {
+        bool is_dir = e->d_type == DT_DIR;
+        if (e->d_type == DT_UNKNOWN || e->d_type == DT_LNK) {
+            char path[sizeof(s_folder) + 260];
+            struct stat st;
+            snprintf(path, sizeof(path), "%s/%s", s_folder, e->d_name);
+            is_dir = stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+        }
+        if (!is_dir && is_image(e->d_name)) {
+            list[n] = strdup(e->d_name);
+        } else if (is_dir && s_cfg.folders && e->d_name[0] != '.' && strlen(e->d_name) < DISKS_NAME_LEN - 2) {
+            list[n] = malloc(strlen(e->d_name) + 2);
+            if (list[n] != NULL) {
+                sprintf(list[n], "%s/", e->d_name);
+            }
+        } else {
+            continue;
+        }
+        if (list[n] != NULL) {
+            n++;
+        }
+    }
+    closedir(dir);
+    if (list != NULL) {
+        qsort(list, n, sizeof(char *), compare_names);
+    }
+    *names = list;
+    return n;
+}
+
+void disks_free_list(char **names, int count)
+{
+    for (int i = 0; i < count; i++) {
+        free(names[i]);
+    }
+    free(names);
+}
+
+bool disks_insert(int drive, const char *name)
+{
+    if (!s_ready || drive < 0 || drive >= s_cfg.drives || name == NULL || name[0] == 0) {
+        return false;
+    }
+    char path[sizeof(s_folder) + DISKS_NAME_LEN + 1];
+    image_path(name, path, sizeof(path));
+    /* One image in one drive at a time: move it */
+    for (int d = 0; d < s_cfg.drives; d++) {
+        if (d != drive && disks_name(d) != NULL && strcasecmp(disks_name(d), name) == 0) {
+            disks_eject(d);
+        }
+    }
+    if (!s_cfg.insert(drive, path)) {
+        return false;
+    }
+    snprintf(s_names[drive], DISKS_NAME_LEN, "%s", name);
+    remember(drive);
+    EMU_LOGI(TAG, "%s: %s", s_cfg.drive_names[drive], name);
+    return true;
+}
+
+void disks_eject(int drive)
+{
+    if (drive < 0 || drive >= s_cfg.drives) {
+        return;
+    }
+    s_cfg.eject(drive);
+    s_names[drive][0] = 0;
+    remember(drive);
+}
+
+int disks_drive_for(const char *name)
+{
+    if (!s_ready || !is_image(name)) {
+        return -1;
+    }
+    for (int d = 0; d < s_cfg.drives; d++) {
+        if (s_cfg.accepts == NULL || s_cfg.accepts(d, name)) {
+            return d;
+        }
+    }
+    return -1;
+}
+
+void disks_ejected(int drive)
+{
+    if (drive >= 0 && drive < s_cfg.drives) {
+        s_names[drive][0] = 0;
+        __atomic_or_fetch(&s_forget, 1u << drive, __ATOMIC_RELAXED);
+    }
+}
+
+void disks_poll(void)
+{
+    uint8_t forget = __atomic_exchange_n(&s_forget, 0, __ATOMIC_RELAXED);
+    for (int d = 0; d < s_cfg.drives; d++) {
+        if (forget & (1u << d)) {
+            remember(d);
+        }
+    }
+}
+
+const char *disks_name(int drive)
+{
+    if (!s_ready || drive < 0 || drive >= s_cfg.drives || s_cfg.path(drive) == NULL) {
+        return NULL;
+    }
+    return s_names[drive];
+}
+
+const char *disks_folder(void)
+{
+    return s_folder;
+}
+
+bool disks_valid_name(const char *name)
+{
+    size_t len = strlen(name);
+    if (len == 0 || len >= DISKS_NAME_LEN - 1 || !is_image(name)) {
+        return false;
+    }
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = name[i];
+        if (c < 0x20 || strchr("/\\:*?\"<>|", c) != NULL) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool disks_can_insert(const char *name)
+{
+    if (disks_valid_name(name)) {
+        return true;
+    }
+    size_t len = strlen(name);
+    if (!s_cfg.folders || len < 2 || len >= DISKS_NAME_LEN - 1 || name[len - 1] != '/' || name[0] == '.') {
+        return false;
+    }
+    for (size_t i = 0; i + 1 < len; i++) {
+        unsigned char c = name[i];
+        if (c < 0x20 || strchr("/\\:*?\"<>|", c) != NULL) {
+            return false;
+        }
+    }
+    char path[sizeof(s_folder) + DISKS_NAME_LEN + 1];
+    struct stat st;
+    snprintf(path, sizeof(path), "%s/%s", s_folder, name);
+    path[strlen(path) - 1] = 0;
+    return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+bool disks_in_use(const char *name)
+{
+    for (int d = 0; d < s_cfg.drives; d++) {
+        if (disks_name(d) != NULL && strcasecmp(disks_name(d), name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+const char *disks_offer(int drive)
+{
+    if (!s_ready || s_cfg.offer == NULL || s_cfg.take_offer == NULL || drive < 0 || drive >= s_cfg.drives) {
+        return NULL;
+    }
+    return s_cfg.offer(drive);
+}
+
+void disks_removed(const char *name)
+{
+    if (s_cfg.removed) {
+        char path[sizeof(s_folder) + DISKS_NAME_LEN + 1];
+        image_path(name, path, sizeof(path));
+        s_cfg.removed(path);
+    }
+}
+
+uint32_t disks_default_size(int drive)
+{
+    if (s_cfg.default_size) {
+        return s_cfg.default_size(drive);
+    }
+    return s_cfg.size_count ? s_cfg.sizes[0].bytes : 0;
+}
+
+/* <prefix>nnnn<ext>: one more than the highest number ever made (kept in
+ * the settings, so deleting the newest image doesn't bring its name back)
+ * or in the folder
+ */
+bool disks_create(int drive, uint32_t bytes, char *name, size_t len)
+{
+    if (!s_ready || s_cfg.create == NULL) {
+        return false;
+    }
+    int32_t last = 0;
+    emu_setting_get_int(s_cfg.nvs_namespace, "empty_n", &last);
+    size_t plen = strlen(s_cfg.new_prefix);
+    DIR *dir = opendir(s_folder);
+    struct dirent *e;
+    while (dir != NULL && (e = readdir(dir)) != NULL) {
+        unsigned n;
+        if (strncasecmp(e->d_name, s_cfg.new_prefix, plen) == 0 && sscanf(e->d_name + plen, "%4u", &n) == 1 &&
+            (int32_t)n > last) {
+            last = n;
+        }
+    }
+    if (dir != NULL) {
+        closedir(dir);
+    }
+    if (last >= 9999) {
+        return false;
+    }
+
+    const char *ext = s_cfg.extension_for ? s_cfg.extension_for(bytes) : s_cfg.new_extension;
+    snprintf(name, len, "%s%04u%s", s_cfg.new_prefix, (unsigned)(last + 1), ext);
+    char path[sizeof(s_folder) + DISKS_NAME_LEN + 1];
+    snprintf(path, sizeof(path), "%s/%s", s_folder, name);
+    if (!s_cfg.create(path, bytes)) {
+        return false;
+    }
+    emu_setting_set_int(s_cfg.nvs_namespace, "empty_n", last + 1);
+    EMU_LOGI(TAG, "made %s", name);
+    return drive < 0 || disks_insert(drive, name);
+}
