@@ -48,7 +48,35 @@ def strip_call(text, name, keep_args):
         i = k
 
 
+def resolve_board(text):
+    """#if CONFIG_IDF_TARGET_ESP32P4 ... [#else ...] #endif: the Tab5's branch
+    (the Pi has its room and speed), and the opposite for !...; nested
+    conditionals inside are kept as they are"""
+    lines = text.split("\n")
+    out, stack = [], []          # stack entries: [ours, keeping] or None for other #ifs
+    for line in lines:
+        s = line.strip()
+        m = re.match(r"#if\s+(!?)\s*(?:defined\()?CONFIG_IDF_TARGET_ESP32(P4|S3)\)?\s*$", s)
+        if m:
+            p4 = (m.group(2) == "P4") != (m.group(1) == "!")
+            stack.append([True, p4])
+            continue
+        if re.match(r"#if", s):
+            stack.append(None)
+        elif s.startswith("#else") and stack and stack[-1]:
+            stack[-1][1] = not stack[-1][1]
+            continue
+        elif s.startswith("#endif") and stack:
+            if stack.pop():
+                continue
+        if all(e is None or e[1] for e in stack):
+            out.append(line)
+    return "\n".join(out)
+
+
 def port(text):
+    text = resolve_board(text)
+    text = text.replace('#include "sdkconfig.h"\n', "")
     for inc in ("freertos/FreeRTOS.h", "freertos/task.h", "freertos/semphr.h", "freertos/queue.h",
                 "esp_heap_caps.h", "esp_timer.h", "esp_system.h", "esp_attr.h", "esp_psram.h"):
         text = text.replace(f'#include "{inc}"\n', "")

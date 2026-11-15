@@ -1307,6 +1307,15 @@ void emu_status_json(char *buf, size_t len)
 
 /* ---- Options ---- */
 
+/* A button's name on one line: "80286\n6 MHz" as "80286 6 MHz" */
+static void one_line(const char *name, char *out, size_t len)
+{
+    snprintf(out, len, "%s", name);
+    for (char *p = out; *p; p++) {
+        *p = *p == '\n' ? ' ' : *p;
+    }
+}
+
 static void choice_list(FILE *f)
 {
     for (int i = 0; i < M->choice_count; i++) {
@@ -1315,7 +1324,9 @@ static void choice_list(FILE *f)
         names = names ? names : ch->names;
         fprintf(f, "  %-12s", ch->label);
         for (int n = 0; names[n] && names[n][0]; n++) {
-            fprintf(f, "%s%.*s", n ? ", " : "", (int)strcspn(names[n], "\n"), names[n]);
+            char name[128];
+            one_line(names[n], name, sizeof(name));
+            fprintf(f, "%s%s", n ? ", " : "", name);
         }
         fprintf(f, "\n");
     }
@@ -1453,8 +1464,12 @@ static void apply_choice(const char *text)
         const char *const *names = M->choice_names ? M->choice_names(i) : NULL;
         names = names ? names : ch->names;
         for (int n = 0; names[n] && names[n][0]; n++) {
+            /* its first line, or both ("80286 8 MHz") */
             size_t len = strcspn(names[n], "\n");
-            if (strlen(eq + 1) == len && strncasecmp(names[n], eq + 1, len) == 0) {
+            char whole[128];
+            one_line(names[n], whole, sizeof(whole));
+            if ((strlen(eq + 1) == len && strncasecmp(names[n], eq + 1, len) == 0) ||
+                strcasecmp(whole, eq + 1) == 0) {
                 ch->set(n);
                 return;
             }

@@ -67,6 +67,24 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)
 endif()
 
+# rpi5emu_embed(<target> <file> <name>): the file built in as const unsigned char
+# <name>[] (a 0 after it) with <name>.h declaring it and <NAME>_SIZE, e.g. a
+# machine's web page script (the boards' EMBED_FILES):
+#   .web_script = (const char *)name, .web_script_end = (const char *)name + NAME_SIZE
+set(RPI5EMU_EMBED "${CMAKE_CURRENT_LIST_DIR}/cmake/embed.cmake" CACHE INTERNAL "")
+function(rpi5emu_embed target file name)
+    set(dir "${CMAKE_CURRENT_BINARY_DIR}/embedded")
+    add_custom_command(
+        OUTPUT "${dir}/${name}.c" "${dir}/${name}.h"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${dir}"
+        COMMAND ${CMAKE_COMMAND} -DIN=${file} -DOUT=${dir}/${name}.c -DHEADER=${dir}/${name}.h
+                -DNAME=${name} -P ${RPI5EMU_EMBED}
+        DEPENDS "${file}" "${RPI5EMU_EMBED}"
+        COMMENT "Built in: ${file}")
+    target_sources(${target} PRIVATE "${dir}/${name}.c" "${dir}/${name}.h")
+    target_include_directories(${target} PRIVATE "${dir}")
+endfunction()
+
 # rpi5emu_add_cores(<target> <core> ...): esp32emu's components into the
 # machine's target (its own defines apply: a core's header may depend on
 # them). Cores: z80 m6502 m6809 w65816 musashi arm2 x86 upd765 diskspace
@@ -77,10 +95,21 @@ function(rpi5emu_add_cores target)
         if(NOT EXISTS "${dir}")
             message(FATAL_ERROR "esp32emu has no component ${core}")
         endif()
-        file(GLOB sources "${dir}/*.c")
-        # the board's own files
-        list(FILTER sources EXCLUDE REGEX "_freertos\\.c$|_alloc\\.c$")
+        if(core STREQUAL "musashi")
+            # Musashi's own layout (its CMakeLists.txt): upstream code, its
+            # warnings kept out of the log; the CPU type by the machine's
+            # defines (M68K_68020, M68K_68030, M68K_RUNTIME, ...: m68kconf.h)
+            set(sources "${dir}/musashi/m68kcpu.c" "${dir}/musashi/m68kdasm.c"
+                        "${dir}/musashi/softfloat/softfloat.c" "${dir}/generated/m68kops.c")
+            set_source_files_properties(${sources} TARGET_DIRECTORY ${target} PROPERTIES COMPILE_OPTIONS "-w")
+            list(APPEND sources "${dir}/m68k_dbg.c")
+            target_include_directories(${target} PRIVATE "${dir}" "${dir}/musashi" "${dir}/generated")
+        else()
+            file(GLOB sources "${dir}/*.c")
+            # the board's own files
+            list(FILTER sources EXCLUDE REGEX "_freertos\\.c$|_alloc\\.c$")
+            target_include_directories(${target} PRIVATE "${dir}/include")
+        endif()
         target_sources(${target} PRIVATE ${sources})
-        target_include_directories(${target} PRIVATE "${dir}/include")
     endforeach()
 endfunction()

@@ -96,8 +96,19 @@ turns it off.
 | Project | Machine | From |
 |---|---|---|
 | [rpi5zx](https://github.com/rlucencic/rpi5zx) | ZX Spectrum 128K, +2, +3 | esp32zx |
-
-The others of the esp32emu family follow, each an `rpi5*` project.
+| [rpi5cpc](https://github.com/rlucencic/rpi5cpc) | Amstrad CPC 464, 664, 6128, 464 Plus, 6128 Plus | esp32cpc |
+| [rpi5cbm](https://github.com/rlucencic/rpi5cbm) | Commodore 64 and 128 | esp32cbm |
+| [rpi5coco](https://github.com/rlucencic/rpi5coco) | Tandy Color Computer 2 and 3 | esp32coco |
+| [rpi5gs](https://github.com/rlucencic/rpi5gs) | Apple IIGS | esp32gs |
+| [rpi5msx](https://github.com/rlucencic/rpi5msx) | MSX1 and MSX2 | esp32msx |
+| [rpi5xl](https://github.com/rlucencic/rpi5xl) | Atari 800XL and 130XE | esp32xl |
+| [rpi5ste](https://github.com/rlucencic/rpi5ste) | Atari STE | esp32ste |
+| [rpi5pc](https://github.com/rlucencic/rpi5pc) | IBM PC/XT and PC/AT | esp32pc |
+| [rpi5mac](https://github.com/rlucencic/rpi5mac) | Macintosh Plus, SE, Classic | esp32mac |
+| [rpi5mac2](https://github.com/rlucencic/rpi5mac2) | Macintosh LC and II | esp32mac2 |
+| [rpi5mac3](https://github.com/rlucencic/rpi5mac3) | Macintosh LC II and LC III | esp32mac3 |
+| [rpi5arc](https://github.com/rlucencic/rpi5arc) | Acorn Archimedes | esp32arc |
+| [rpi5ami](https://github.com/rlucencic/rpi5ami) | Amiga 500, 2000, 600, 1200 | esp32ami |
 
 ## Licence
 

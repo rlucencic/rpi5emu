@@ -1,9 +1,12 @@
 # rpi5emu: the shared runtime for the rpi5* emulators
 
 The Raspberry Pi 5 (64-bit Ubuntu 26.04, SDL 3) side of the esp32emu
-family: every `esp32*` emulator gets an `rpi5*` project (the user's plan,
+family: every `esp32*` emulator has an `rpi5*` project (the user's plan,
 2026-11-15), each a window of its own (X11 or Wayland). C, CMake. Users:
-`../rpi5zx` (the Spectrum) so far.
+`../rpi5zx`, `rpi5cpc`, `rpi5cbm`, `rpi5coco`, `rpi5gs`, `rpi5msx`,
+`rpi5xl`, `rpi5ste`, `rpi5pc`, `rpi5mac`, `rpi5mac2`, `rpi5mac3`,
+`rpi5arc`, `rpi5ami`: all 14 (the last 13 ported the same day). A change
+here: build them all (`for p in ...; do tools/pi.sh $p build; done`).
 
 **One machine, two platforms**: an rpi5* project compiles its esp32*
 sibling's platform-independent core (`../esp32zx/components/zx`) and
@@ -28,6 +31,11 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 | `src/disks.c` | esp32emu's disks.c on the data folder; a name starting with `/` is a path anywhere |
 | `src/settings.c` | `~/.config/rpi5emu/settings.ini`, sections as NVS namespaces |
 | `src/png.c` | Screenshots (libpng) |
+| `include/emu/nvs.h` | ESP-IDF's NVS calls over the settings file: the esp32* `settings.c` files carry over as they are |
+| `cmake/embed.cmake`, `rpi5emu_embed()` | A file built in (the web page; a machine's web script: `NAME` and `NAME_SIZE` for `.web_script`, `.web_script_end`) |
+| `tools/port_glue.py` | An esp32* project's `main/*.c` into an rpi5* project's `src/`: the board APIs replaced (log, NVS, heap_caps, delays, `app_main`), `#if CONFIG_IDF_TARGET_ESP32P4` resolved to the Tab5's branch; then lists what's left |
+| `tools/port_finish.py` | The usual hand edits after it (the header, the ROM messages, the SD card's wording, `shutdown()` from `flush()`) |
+| `tools/port_rom_store.py` | A `rom_store.c` of the usual shape (a table of names, partitions and sizes) onto `emu_rom_read()` |
 | `tools/pi.sh` | Sync to the Pi, build there, run with X forwarding |
 | `tools/console.sh` | Console commands to the Pi's emulator |
 | `tools/capture.sh`, `tools/xwd2png.py` | The forwarded window as a PNG |
@@ -59,6 +67,28 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   in without the user's screen, real keys and clicks), here `xdotool
   imagemagick`.
 
+## Porting a machine (how the 13 went)
+
+1. `git init` an `rpi5X` beside the others; `tools/port_glue.py esp32X
+   rpi5X`, `tools/port_finish.py rpi5X/src/main.c esp32X`, and
+   `tools/port_rom_store.py esp32X rpi5X` (or a `rom_store.c` by hand: the
+   Macs, the Archimedes and the Amiga find their ROMs by contents).
+2. By hand what's left: memory the boards size by PSRAM or restart into
+   (`emu_reboot_into_machine()`: allocate at `start()` instead), FreeRTOS
+   tasks (threads, semaphores, mutexes), `esp_timer` (`clock_gettime()`),
+   web scripts (`rpi5emu_embed()`), Kconfig options (constants with the
+   Kconfig defaults), the boards' opcode table copies (the ST's and Macs'
+   sizes count 4-byte pointers: pass none).
+3. `CMakeLists.txt` from the core's host Makefile: its sources, include
+   folders, defines (`CONFIG_Z80_*`, `M68K_*`) and cores
+   (`rpi5emu_add_cores()`), zlib where the host build links it.
+4. The core's `#ifndef ESP_PLATFORM` parts are its host test build's: they
+   are compiled here too and may want symbols the host harness defines
+   (esp32gs's `gs_host_*` switches, esp32ami's `ami_host_watch_hit()`):
+   defined in the glue as the boards behave.
+5. ROMs to `~/rpi5emu/roms` on the Pi (`scp` from the esp32 project's
+   `roms/`), `tools/pi.sh rpi5X build`, `headless`, `console.sh`, `shot`.
+
 ## Lessons
 
 - **X forwarding carries every changed picture**: a 704 x 600 window over
@@ -75,6 +105,13 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   the key held at that moment down (the board's too); and the 128 and +3
   editors take the first key after a report to clear it. Wait for one `T`
   to end (6 frames a character) before the next.
+- **Headless runs need the whole command line redirected**: `cd dir && nohup
+  prog > log &` keeps the SSH session open (the `&&` list's subshell holds
+  its output); `(cd dir && exec nohup prog) > log 2>&1 < /dev/null &`
+  doesn't (`tools/pi.sh headless`).
+- **Key events in one frame**: the IIGS lost Control's key-up when it came
+  in the same frame as Reset's (Control stayed down, letters became control
+  characters): console keys a frame apart (`@0.3`).
 - Pipewire on the Pi without a monitor plays into `auto_null`: the sound
   runs (the stream is there) but nothing is heard.
 

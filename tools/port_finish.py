@@ -71,7 +71,7 @@ def main():
                       " * frames, once nothing has been written for a second; and at the end\n */\n")
     m = re.search(r"static void flush\(void \*arg\)\n\{\n(.*?)\n\}\n", t, re.S)
     if m and "static void shutdown(void)" not in t:
-        body = m.group(1)
+        body = "\n".join(line for line in m.group(1).split("\n") if "(void)arg;" not in line)
         t = t.replace(m.group(0), m.group(0) + f"\nstatic void shutdown(void)\n{{\n{body}\n}}\n", 1)
         t = t.replace("    .every_second = every_second,\n", "    .every_second = every_second,\n"
                       "    .shutdown = shutdown,\n", 1)

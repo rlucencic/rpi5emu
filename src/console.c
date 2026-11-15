@@ -141,8 +141,13 @@ static void print_choices(void)
         int now = ch->get();
         emu_console_printf("%d %-12s", i, ch->label);
         for (int n = 0; names[n] && names[n][0]; n++) {
-            emu_console_printf(" %s%d %.*s%s", n == now ? "[" : "", n, (int)strcspn(names[n], "\n"), names[n],
-                               n == now ? "]" : "");
+            /* a button's two lines ("80286\n6 MHz") as one */
+            char name[128];
+            snprintf(name, sizeof(name), "%s", names[n]);
+            for (char *p = name; *p; p++) {
+                *p = *p == '\n' ? ' ' : *p;
+            }
+            emu_console_printf(" %s%d %s%s", n == now ? "[" : "", n, name, n == now ? "]" : "");
         }
         emu_console_printf("%s\n", ch->live ? " (live)" : "");
     }
