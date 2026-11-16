@@ -47,7 +47,10 @@ build)
 run)
     # XQuartz has no GLX visual the Pi's Mesa can use (X_GLXCreateContext
     # BadValue ends the program): SDL draws in software there, its window
-    # surface too (SDL 3 backs that with a GL texture on X11)
+    # surface too (SDL 3 backs that with a GL texture on X11). And no
+    # XInput2: SDL's relative mode reads XQuartz's Rel X/Y axes, which its
+    # raw motion never carries (only Abs X/Y), so the grabbed mouse didn't
+    # move; without it the runtime moves it by warps
     env=
     if [ "$(uname -s)" = Darwin ]; then
         if [ -z "$DISPLAY" ]; then
@@ -55,7 +58,7 @@ run)
             [ -S /tmp/.X11-unix/X0 ] || open -a XQuartz
             for i in $(seq 40); do [ -S /tmp/.X11-unix/X0 ] && break; sleep 0.25; done
         fi
-        env="SDL_RENDER_DRIVER=software SDL_FRAMEBUFFER_ACCELERATION=0 "
+        env="SDL_RENDER_DRIVER=software SDL_FRAMEBUFFER_ACCELERATION=0 SDL_VIDEO_X11_XINPUT2=0 "
     fi
     ssh -C -Y "$host" "cd ~/Development/$project && ${env}exec build/$project $*" ;;
 headless)

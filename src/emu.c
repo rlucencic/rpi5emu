@@ -935,6 +935,28 @@ static bool s_swallow[256];             /* a host key's release */
 static bool s_grabbed;
 static uint8_t s_buttons;
 static float s_mouse_x, s_mouse_y;
+/* Without SDL's relative mode (XQuartz: pi.sh turns XInput2 off, SDL's
+ * read axes the server never sends): the pointer hidden, held in the
+ * window and put back in its middle, the motion from where it went
+ */
+static bool s_warping;
+static bool s_warp_pending;             /* until motion from the middle */
+static uint64_t s_warp_ns;
+static float s_last_x, s_last_y;        /* the motion is measured from here */
+static float s_from_x, s_from_y;        /* where the pointer was warped from */
+
+static void centre_pointer(float from_x, float from_y)
+{
+    int w, h;
+    SDL_GetWindowSize(s_window, &w, &h);
+    s_from_x = from_x;
+    s_from_y = from_y;
+    s_last_x = (float)(w / 2);
+    s_last_y = (float)(h / 2);
+    SDL_WarpMouseInWindow(s_window, s_last_x, s_last_y);
+    s_warp_pending = true;
+    s_warp_ns = now_ns();
+}
 
 static void grab(bool on)
 {
@@ -942,7 +964,21 @@ static void grab(bool on)
         return;
     }
     s_grabbed = on;
-    SDL_SetWindowRelativeMouseMode(s_window, on);
+    if (on && !SDL_SetWindowRelativeMouseMode(s_window, true)) {
+        EMU_LOGI(TAG, "no relative mouse mode (%s): by warps", SDL_GetError());
+        s_warping = true;
+        SDL_HideCursor();
+        SDL_SetWindowMouseGrab(s_window, true);
+        float x, y;
+        SDL_GetMouseState(&x, &y);
+        centre_pointer(x, y);
+    } else if (!on && s_warping) {
+        s_warping = false;
+        SDL_SetWindowMouseGrab(s_window, false);
+        SDL_ShowCursor();
+    } else if (!on) {
+        SDL_SetWindowRelativeMouseMode(s_window, false);
+    }
     if (!on && s_buttons) {
         s_buttons = 0;
         M->hid_mouse(0, 0, 0);
@@ -1111,8 +1147,40 @@ static void mouse_motion(const SDL_MouseMotionEvent *m)
     if (!s_grabbed || M->hid_mouse == NULL) {
         return;
     }
-    s_mouse_x += m->xrel;
-    s_mouse_y += m->yrel;
+    float xrel = m->xrel, yrel = m->yrel;
+    if (s_warping) {
+        if (s_warp_pending) {
+            if (fabsf(m->x - s_last_x) <= 1 && fabsf(m->y - s_last_y) <= 1) {
+                return;                 /* the warp's own: in the X server, on the screen? */
+            }
+            if (hypotf(m->x - s_from_x, m->y - s_from_y) < hypotf(m->x - s_last_x, m->y - s_last_y)) {
+                /* Motion from where the pointer was: from before the warp
+                 * (over the network it comes even after the warp's own),
+                 * or the pointer on the screen stayed there (XQuartz moves
+                 * and hides it only as the active application, and the
+                 * click that made it that came first): then again
+                 */
+                if (now_ns() - s_warp_ns > 200000000ull) {
+                    SDL_ShowCursor();
+                    SDL_HideCursor();
+                    centre_pointer(m->x, m->y);
+                }
+                return;
+            }
+            s_warp_pending = false;
+        }
+        xrel = m->x - s_last_x;
+        yrel = m->y - s_last_y;
+        s_last_x = m->x;
+        s_last_y = m->y;
+        int w, h;
+        SDL_GetWindowSize(s_window, &w, &h);
+        if (m->x < w / 4 || m->x > w * 3 / 4 || m->y < h / 4 || m->y > h * 3 / 4) {
+            centre_pointer(m->x, m->y);
+        }
+    }
+    s_mouse_x += xrel;
+    s_mouse_y += yrel;
     int dx = (int)s_mouse_x, dy = (int)s_mouse_y;
     s_mouse_x -= dx;
     s_mouse_y -= dy;
@@ -1613,10 +1681,16 @@ static bool open_window(void)
         EMU_LOGE(TAG, "no window: %s", SDL_GetError());
         return false;
     }
-    SDL_SetRenderVSync(s_renderer, 1);
+    /* vsync, unless the display's rate isn't one: XQuartz numbers its
+     * modes 1, 2 ... Hz, and the software renderer's vsync (a wait of one
+     * refresh) then held each picture, and the input, for a second
+     */
+    const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(SDL_GetDisplayForWindow(s_window));
+    bool no_rate = dm && dm->refresh_rate > 0 && dm->refresh_rate < 20;
+    SDL_SetRenderVSync(s_renderer, no_rate ? 0 : 1);
     SDL_SetWindowMinimumSize(s_window, 160, 120);
-    EMU_LOGI(TAG, "window %d x %d through %s, drawn by %s", w, h, SDL_GetCurrentVideoDriver(),
-             SDL_GetRendererName(s_renderer));
+    EMU_LOGI(TAG, "window %d x %d through %s, drawn by %s%s", w, h, SDL_GetCurrentVideoDriver(),
+             SDL_GetRendererName(s_renderer), no_rate ? ", no vsync (the display's rate is no rate)" : "");
     return true;
 }
 

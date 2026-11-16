@@ -112,6 +112,20 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   alone wasn't enough: SDL 3 backs a software window surface with a GL
   texture on X11 too; `SDL_FRAMEBUFFER_ACCELERATION=0` stops that.
   `pi.sh run` sets both when it runs on a Mac.
+- **XQuartz's refresh rates are numbers, not rates**: RandR lists its
+  modes at 1, 2 ... Hz, and the software renderer's vsync waits one refresh
+  a present: a picture a second, and the input read between them came a
+  second late (the grabbed mouse "offset from the hand"). No vsync when the
+  display's rate is under 20 Hz: 7 pictures a second with the mouse moving.
+- **SDL's relative mouse on XQuartz didn't move**: SDL 3.4's XInput2 raw
+  motion takes the device's `Rel X`/`Rel Y` axes, which XQuartz's pointer
+  declares but whose raw events only carry `Abs X`/`Abs Y`: every delta 0.
+  `pi.sh run` sets `SDL_VIDEO_X11_XINPUT2=0`, relative mode is then refused,
+  and the runtime grabs by warps (the pointer hidden, put back in the
+  window's middle). XQuartz moves and hides the Mac's pointer only while
+  it's the active application, and over ssh motion from before a warp
+  arrives after the warp's own: motion still nearer where the pointer was
+  is skipped, and the warp tried again after 200 ms.
 - **The setup screen's buttons are where they were last drawn**: clicks
   that come before a redraw (the console's `t`, quick ones) found the old
   page's buttons; a click now lays the page out first when it changed.
