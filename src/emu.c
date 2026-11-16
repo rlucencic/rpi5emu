@@ -652,6 +652,12 @@ static bool update_picture(void)
     bool changed = false;
     pthread_mutex_lock(&s_present_lock);
     if (s_present_on) {
+        /* The signature first, as the boards' presenter: it can choose the
+         * frame that screen_mode() and render_line() then describe (the
+         * Archimedes pins its latest): a mode read before it was the last
+         * frame's, and a frame of another width overran the pixels
+         */
+        uint32_t sig = M->screen_signature();
         emu_screen_t mode = { 0 };
         M->screen_mode(&mode);
         if (mode.width > 0 && mode.height > 0) {
@@ -664,7 +670,6 @@ static bool update_picture(void)
                 s_have_picture = false;
             }
             s_mode = mode;
-            uint32_t sig = M->screen_signature();
             if ((!s_have_picture || sig != s_signature) && s_pixels && s_texture) {
                 pthread_mutex_lock(&s_pixels_lock);
                 for (int y = 0; y < mode.height; y++) {
@@ -782,19 +787,22 @@ static void shot_fn(void *arg)
     if (!s_started) {
         return;
     }
+    /* the presenter's lock: its screen_signature() can choose another
+     * frame (of another width) between the mode and the lines
+     */
+    pthread_mutex_lock(&s_present_lock);
     M->screen_mode(&mode);
-    if (mode.width <= 0 || mode.height <= 0) {
-        return;
+    if (mode.width > 0 && mode.height > 0) {
+        shot->pixels = malloc((size_t)mode.width * mode.height * sizeof(uint16_t));
     }
-    shot->pixels = malloc((size_t)mode.width * mode.height * sizeof(uint16_t));
-    if (shot->pixels == NULL) {
-        return;
+    if (shot->pixels) {
+        shot->width = mode.width;
+        shot->height = mode.height;
+        for (int y = 0; y < mode.height; y++) {
+            M->render_line(y, shot->pixels + (size_t)y * mode.width);
+        }
     }
-    shot->width = mode.width;
-    shot->height = mode.height;
-    for (int y = 0; y < mode.height; y++) {
-        M->render_line(y, shot->pixels + (size_t)y * mode.width);
-    }
+    pthread_mutex_unlock(&s_present_lock);
 }
 
 /* <data>/screenshots/<machine><kind>-<n>.png, the next free n */
