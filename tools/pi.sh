@@ -8,7 +8,9 @@
 #           Pi's ~/Development, no build folders, no .git
 #   build   sync, then cmake --build there (configures the first time)
 #   run     the program there, its window here (ssh -C -Y: X forwarding,
-#           compressed), its log on this terminal; options go to it
+#           compressed), its log on this terminal; options go to it. From
+#           a Mac: XQuartz (started when DISPLAY isn't set), SDL drawing
+#           in software
 #   headless [options]  the program there without a window (SDL's offscreen
 #           display) and started at once, in the background: drive it with
 #           console.sh (q ends it)
@@ -43,7 +45,19 @@ build)
     ssh -o BatchMode=yes "$host" "cd ~/Development/$project && \
         { [ -f build/build.ninja ] || cmake -S . -B build -G Ninja; } && cmake --build build" ;;
 run)
-    ssh -C -Y "$host" "cd ~/Development/$project && exec build/$project $*" ;;
+    # XQuartz has no GLX visual the Pi's Mesa can use (X_GLXCreateContext
+    # BadValue ends the program): SDL draws in software there, its window
+    # surface too (SDL 3 backs that with a GL texture on X11)
+    env=
+    if [ "$(uname -s)" = Darwin ]; then
+        if [ -z "$DISPLAY" ]; then
+            export DISPLAY=:0
+            [ -S /tmp/.X11-unix/X0 ] || open -a XQuartz
+            for i in $(seq 40); do [ -S /tmp/.X11-unix/X0 ] && break; sleep 0.25; done
+        fi
+        env="SDL_RENDER_DRIVER=software SDL_FRAMEBUFFER_ACCELERATION=0 "
+    fi
+    ssh -C -Y "$host" "cd ~/Development/$project && ${env}exec build/$project $*" ;;
 headless)
     # no window anywhere (SDL's offscreen display), started at once, the
     # log in /tmp/<project>.log there; ready when the console answers

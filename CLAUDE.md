@@ -51,6 +51,12 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   [options]` runs it with its window here (`ssh -C -Y`). The Pi's clones are
   git repos whose working trees rsync overwrites: after a push, `git fetch
   && git reset --hard origin/main` there.
+- Or from the Mac (`~/Development` there too): `~/.ssh/config` gives
+  `robert-pi5` the user `robert` (the Mac's login is another) and
+  `XAuthLocation /opt/X11/bin/xauth` (macOS's ssh looks in `/usr/X11R6`);
+  XQuartz is the X server (`brew install --cask xquartz`), `pi.sh run`
+  starts it and has SDL draw in software. `capture.sh` wants
+  `PATH=/opt/X11/bin:$PATH` and Python's PIL there.
 - ROMs on the Pi: `~/rpi5emu/roms` (copied from the esp32 projects' `roms/`,
   not in git).
 - Driving it: `tools/console.sh 'i' 'T 10 PRINT 1\n' @4 's /tmp/x.png'`
@@ -98,7 +104,14 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   window). The window thread falls behind, so its copy of the picture is
   old: screenshots come from the machine itself, held between frames
   (`emu_screenshot()`), not from the presenter. The `pictures/s` of `i`
-  says how the window keeps up.
+  says how the window keeps up (0 on a still screen: only a changed
+  picture is drawn).
+- **XQuartz has no GLX for the Pi's Mesa**: forwarded to a Mac, SDL's
+  default (OpenGL) renderer ended the program at once (`No matching
+  fbConfigs`, then `X_GLXCreateContext` BadValue). `SDL_RENDER_DRIVER=software`
+  alone wasn't enough: SDL 3 backs a software window surface with a GL
+  texture on X11 too; `SDL_FRAMEBUFFER_ACCELERATION=0` stops that.
+  `pi.sh run` sets both when it runs on a Mac.
 - **The setup screen's buttons are where they were last drawn**: clicks
   that come before a redraw (the console's `t`, quick ones) found the old
   page's buttons; a click now lays the page out first when it changed.
