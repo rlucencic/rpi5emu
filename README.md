@@ -25,7 +25,8 @@ rpi5emu is everything an emulator on the Raspberry Pi 5 needs apart from the mac
 itself: a window (X11 or Wayland, through SDL 3) with the machine's picture in its shape,
 sound, the Pi's keyboard and mouse, a setup screen in the window, a web page for disk
 images, a console of line commands, the settings and a data folder for ROMs and disk
-images.
+images (`~/rpi5emu`: a folder for each machine, its images in it and its ROMs in its
+`roms/`, e.g. `zx/roms`; the three Macs share `mac/`).
 
 The machines aren't written again: they are the
 [esp32emu](https://github.com/rlucencic/esp32emu) family's. Each rpi5 project compiles
@@ -44,7 +45,7 @@ machine for the boards and the Pi.
 | `src/console.c` | Line commands on the terminal and on `127.0.0.1:6400`: the state, keys and typing (the machine's), drives, screenshots, choices, the setup screen |
 | `src/disks.c`, `src/settings.c` | The data folder's images for the drives, remembered across starts; the settings file, sections as the boards' NVS namespaces (`emu/nvs.h` gives the boards' settings code the NVS calls) |
 | esp32emu's `emudbg` | The debugger of the family (`--debug <port>`, the VS Code extension [esp32emu-vscode](https://github.com/rlucencic/esp32emu-vscode)) |
-| `tools/` | `pi.sh` (sync to the Pi, build, run there with the window here, or headless), `console.sh`, `capture.sh`; `pi.ps1` and `console.ps1`, the same from Windows; and the porting scripts that carry a machine's glue over from its esp32 sibling |
+| `tools/` | `pi.sh` (sync to the Pi, build, run there with the window here, or headless), `console.sh`, `capture.sh`; `pi.ps1` and `console.ps1`, the same from Windows; `data_folders.sh` (an old data folder's shared `roms/` and disk folders into the machines' own); and the porting scripts that carry a machine's glue over from its esp32 sibling |
 
 ## Building
 

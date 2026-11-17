@@ -2,7 +2,7 @@
 """port_rom_store.py <esp32 project> <rpi5 project>
 
 An esp32* project's main/rom_store.c and .h into the rpi5* project's src/,
-for the data folder's roms/: the flash partition's reading (from_partition())
+for the machine's roms/ folder: the flash partition's reading (from_partition())
 goes, the SD card's (from_sd()) becomes emu_rom_read() (rpi5emu), the
 comments say so. The usual shape only: what doesn't fit is reported, and
 then ported by hand.
@@ -31,7 +31,7 @@ def main():
     h = (src / "rom_store.h").read_text()
     h2 = re.sub(r"from the \w+ flash partition \(roms/<name>\s*\*?\s*in the\s*\*?\s*project, written (there )?by idf\.py "
                 r"flash( into [^)]*)?\), else from the\s*\*?\s*SD\s*\*?\s*card's \"?[\w/]*\"? folder( under the same "
-                r"names)?\.", "files in the data folder's roms/ (emu_rom_read()), named as on the boards.", h,
+                r"names)?\.", "files in the machine's roms/ folder (emu_rom_read()), named as on the boards.", h,
                 flags=re.S)
     print(f"rom_store.h: comment {'done' if h2 != h else 'not found'}")
     (dst / "rom_store.h").write_text(h2)

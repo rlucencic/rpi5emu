@@ -5,7 +5,7 @@ The usual hand edits after port_glue.py, where the esp32* glue follows its
 usual shape (each one reported, or "not found": then by hand):
 
   the header comment's board and runtime        the Pi's
-  missing()'s "flash it, or the SD card" text   the data folder's roms/
+  missing()'s "flash it, or the SD card" text   its folder's roms/ (emu_rom_dir())
   "on the SD card", "No SD card"                the data folder
   flush(): written back between frames          also shutdown(), at the end
 """
@@ -47,21 +47,21 @@ def main():
     edit("header: the runtime", pattern, runtime, re.S)
     edit("missing(): the ROM message",
          r'static char message\[\d+\];\s*snprintf\(message, sizeof\(message\),\s*"No %s ROM: put %s into roms/ and '
-         r'flash with idf\.py flash, or copy it into the "\s*"\\"roms\\" folder on the SD card\.", ([^;]*)\);',
-         r'static char message[1400];\n    snprintf(message, sizeof(message), "No %s ROM: copy %s into %s/roms.", '
-         r'\1, emu_data_dir());', re.S)
+         r'flash with idf\.py flash, or copy it into the "\s*"\\"(?:\w+/)?roms\\" folder on the SD card\.", ([^;]*)\);',
+         r'static char message[1400];\n    snprintf(message, sizeof(message), "No %s ROM: copy %s into %s.", '
+         r'\1, emu_rom_dir());', re.S)
     edit("the SD card", r"on the SD card", "in the data folder")
     edit("no SD card", r"No SD card", "No data folder")
 
     def fixed_message(m):
         indent, what, files = m.group(1), m.group(2), m.group(3)
         return (f"{indent}static char message[1400];\n"
-                f'{indent}snprintf(message, sizeof(message), "{what}: copy {files} into %s/roms.", emu_data_dir());\n'
+                f'{indent}snprintf(message, sizeof(message), "{what}: copy {files} into %s.", emu_rom_dir());\n'
                 f"{indent}emu_set_message(message);")
 
     edit("fixed ROM messages",
          r'( *)emu_set_message\("(No [^"]*?ROMs?): put ([^"]*?) into roms/ and flash with idf\.py ?"?\s*"?flash, "?'
-         r'\s*"?or copy (?:it|them) into the \\"roms\\" folder (?:on the SD card|in the data folder)\."\);',
+         r'\s*"?or copy (?:it|them) into the \\"(?:\w+/)?roms\\" folder (?:on the SD card|in the data folder)\."\);',
          fixed_message, re.S)
 
     m = re.search(r"/\* Disk writes go to the SD card from here \(core 0\), between frames, once\n"

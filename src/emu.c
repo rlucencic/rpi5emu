@@ -98,6 +98,7 @@ static double thread_cpu_s(pthread_t thread)
 /* ---- State ---- */
 
 static char s_data_dir[1024];
+static char s_rom_dir[1100];
 static atomic_bool s_started;           /* start() succeeded */
 static atomic_bool s_quit;
 static atomic_bool s_reset_requested;
@@ -134,10 +135,15 @@ const char *emu_data_dir(void)
     return s_data_dir;
 }
 
+const char *emu_rom_dir(void)
+{
+    return s_rom_dir;
+}
+
 long emu_rom_read(const char *name, void *buf, size_t max)
 {
     char path[1400];
-    snprintf(path, sizeof(path), "%s/roms/%s", s_data_dir, name);
+    snprintf(path, sizeof(path), "%s/%s", s_rom_dir, name);
     FILE *f = fopen(path, "rb");
     if (f == NULL) {
         for (char *p = path + strlen(path) - strlen(name); *p; p++) {
@@ -1543,7 +1549,8 @@ static void usage(const char *prog, FILE *f)
             "  images               disks, tapes, snapshots ...: each into the first drive\n"
             "                       that takes it\n"
             "  -S, --start          start the machine at once (else the setup screen first)\n"
-            "  -d, --data DIR       the data folder: roms/, the disk folders\n"
+            "  -d, --data DIR       the data folder: a folder for each machine, its disks\n"
+            "                       and its roms/\n"
             "                       (default $RPI5EMU_HOME, else ~/rpi5emu)\n"
             "  -f, --fullscreen     start full screen (Ctrl+Alt+F switches)\n"
             "  -s, --scale N        the window's size: N times the machine's own (default 1)\n"
@@ -1649,6 +1656,13 @@ static void set_data_dir(void)
     make_dirs(s_data_dir);
     struct stat st;
     s_info.sd_card = stat(s_data_dir, &st) == 0 && S_ISDIR(st.st_mode);
+    /* Each machine's ROMs in its own folder, none shared but the Macs' */
+    if (M->disks != NULL && M->disks->folder != NULL && M->disks->folder[0]) {
+        snprintf(s_rom_dir, sizeof(s_rom_dir), "%s/%s/roms", s_data_dir, M->disks->folder);
+    } else {
+        snprintf(s_rom_dir, sizeof(s_rom_dir), "%s/roms", s_data_dir);
+    }
+    make_dirs(s_rom_dir);
 }
 
 /* "--choice Model=+3": by the button's name (its first line, any case) or number */

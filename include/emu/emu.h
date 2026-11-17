@@ -16,8 +16,8 @@
  *   console threads:  line commands from stdin and 127.0.0.1:<port>
  *
  * Where the boards have an SD card and NVS, the Pi has folders:
- *   emu_data_dir()    the "SD card": $RPI5EMU_HOME, else ~/rpi5emu (roms/,
- *                     the machines' disk folders)
+ *   emu_data_dir()    the "SD card": $RPI5EMU_HOME, else ~/rpi5emu (a
+ *                     folder for each machine: its disks, its roms/)
  *   settings          ~/.config/rpi5emu/settings.ini (emu/settings.h)
  *
  * Start-up: settings, reserve_memory(), storage(), the remembered disks, the
@@ -139,12 +139,19 @@ int emu_main(const emu_machine_t *machine, int argc, char **argv);
 
 const emu_machine_t *emu_machine(void);
 
-/* The "SD card": roms/ and the disk folders (no trailing slash) */
+/* The "SD card": a folder for each machine (its disks, its roms/), no
+ * trailing slash
+ */
 const char *emu_data_dir(void);
 
-/* A ROM file from the data folder's roms/ (the name as given, else in
- * capitals: as copied from a FAT card), up to max bytes into buf: the bytes
- * read, -1 if there's none
+/* This machine's ROMs: roms/ in its disk folder (<data>/zx/roms; the Macs
+ * share mac/roms), made at start, no trailing slash
+ */
+const char *emu_rom_dir(void);
+
+/* A ROM file from emu_rom_dir() (the name as given, else in capitals: as
+ * copied from a FAT card), up to max bytes into buf: the bytes read, -1 if
+ * there's none
  */
 long emu_rom_read(const char *name, void *buf, size_t max);
 

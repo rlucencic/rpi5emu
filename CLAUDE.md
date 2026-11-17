@@ -40,6 +40,7 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 | `tools/console.sh` | Console commands to the Pi's emulator |
 | `tools/pi.ps1`, `tools/console.ps1` | The same from Windows (PowerShell 7.4+): the trees synced through git, not rsync |
 | `tools/capture.sh`, `tools/xwd2png.py` | The forwarded window as a PNG |
+| `tools/data_folders.sh` | An old data folder's shared `roms/`, `floppies/`, `disks/`, `atari/` into the machines' own folders (run on the Pi; `-n` only says) |
 
 ## Developing (the user's setup)
 
@@ -73,8 +74,15 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   started when nothing answers on `localhost:0`) and draws as on the Mac
   (software, no XInput2): 16 pictures a second with the whole border
   changing.
-- ROMs on the Pi: `~/rpi5emu/roms` (copied from the esp32 projects' `roms/`,
-  not in git).
+- The data folder (`~/rpi5emu` on the Pi; the boards' SD cards the same):
+  a folder for each machine, the disk config's `.folder` (`zx cpc cbm coco
+  apple2gs msx xl st pc arc amiga`, the three Macs sharing `mac`), its
+  images in it and its ROMs in its `roms/` (`emu_rom_dir()`, made at start;
+  copied from the esp32 projects' `roms/`, not in git). Shared folders until
+  2026-11-17 (`roms/`, `floppies/` for the ST, Archimedes and Amiga,
+  `disks/` for the Macs, the XL's `atari/`): `tools/data_folders.sh [-n]`
+  moved them (ROMs by name, images by type, size and the Amiga's `RDSK`
+  mark), esp32emu's `tools/sd_folders.ps1 [-DryRun] E:\` does an SD card.
 - Driving it: `tools/console.sh 'i' 'T 10 PRINT 1\n' @4 's /tmp/x.png'`
   (the machine's picture, then `scp`), `window /tmp/w.png` (the window as
   drawn, the setup screen too: headless works), `tools/capture.sh
@@ -109,8 +117,9 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
    are compiled here too and may want symbols the host harness defines
    (esp32gs's `gs_host_*` switches, esp32ami's `ami_host_watch_hit()`):
    defined in the glue as the boards behave.
-5. ROMs to `~/rpi5emu/roms` on the Pi (`scp` from the esp32 project's
-   `roms/`), `tools/pi.sh rpi5X build`, `headless`, `console.sh`, `shot`.
+5. ROMs to the machine's `~/rpi5emu/<folder>/roms` on the Pi (`scp` from
+   the esp32 project's `roms/`), `tools/pi.sh rpi5X build`, `headless`,
+   `console.sh`, `shot`.
 
 ## Lessons
 
