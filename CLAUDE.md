@@ -142,6 +142,13 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   it's the active application, and over ssh motion from before a warp
   arrives after the warp's own: motion still nearer where the pointer was
   is skipped, and the warp tried again after 200 ms.
+- **MobaXterm shows its arrow for a blank cursor**: forwarded to Windows,
+  the grabbed mouse showed two pointers, the machine's and MobaXterm's.
+  Its X server ("Moba/X") draws its arrow for a fully blank cursor
+  (`SDL_HideCursor()`'s, `XFixesHideCursor()`'s), but takes a 16 x 16
+  colour cursor with one pixel at 1/255 opacity and draws nothing: the
+  runtime hides the pointer so while it grabs by warps (measured with
+  `GetCursorInfo()` over the window: 199 pixels of arrow, then 0).
 - **The setup screen's buttons are where they were last drawn**: clicks
   that come before a redraw (the console's `t`, quick ones) found the old
   page's buttons; a click now lays the page out first when it changed.

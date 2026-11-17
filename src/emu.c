@@ -937,13 +937,47 @@ static uint8_t s_buttons;
 static float s_mouse_x, s_mouse_y;
 /* Without SDL's relative mode (XQuartz: pi.sh turns XInput2 off, SDL's
  * read axes the server never sends): the pointer hidden, held in the
- * window and put back in its middle, the motion from where it went
+ * window and put back in its middle, the motion from where it went.
+ * Hidden by a cursor of one pixel at 1/255 opacity, not SDL_HideCursor():
+ * MobaXterm's X server shows its arrow for a blank cursor (SDL's, XFixes's
+ * too), beside the machine's own pointer; this one it takes, and draws
+ * nothing
  */
 static bool s_warping;
 static bool s_warp_pending;             /* until motion from the middle */
 static uint64_t s_warp_ns;
 static float s_last_x, s_last_y;        /* the motion is measured from here */
 static float s_from_x, s_from_y;        /* where the pointer was warped from */
+static SDL_Cursor *s_faint_cursor;
+
+/* Set again each time (from the default): a change, which XQuartz takes
+ * when it has become the active application
+ */
+static void hide_pointer(void)
+{
+    if (s_faint_cursor == NULL) {
+        SDL_Surface *s = SDL_CreateSurface(16, 16, SDL_PIXELFORMAT_ARGB8888);
+        if (s != NULL) {
+            SDL_FillSurfaceRect(s, NULL, 0);
+            ((Uint32 *)s->pixels)[0] = 0x01000000;
+            s_faint_cursor = SDL_CreateColorCursor(s, 0, 0);
+            SDL_DestroySurface(s);
+        }
+    }
+    if (s_faint_cursor != NULL) {
+        SDL_SetCursor(SDL_GetDefaultCursor());
+        SDL_SetCursor(s_faint_cursor);
+    } else {
+        SDL_ShowCursor();
+        SDL_HideCursor();
+    }
+}
+
+static void show_pointer(void)
+{
+    SDL_SetCursor(SDL_GetDefaultCursor());
+    SDL_ShowCursor();
+}
 
 static void centre_pointer(float from_x, float from_y)
 {
@@ -967,7 +1001,7 @@ static void grab(bool on)
     if (on && !SDL_SetWindowRelativeMouseMode(s_window, true)) {
         EMU_LOGI(TAG, "no relative mouse mode (%s): by warps", SDL_GetError());
         s_warping = true;
-        SDL_HideCursor();
+        hide_pointer();
         SDL_SetWindowMouseGrab(s_window, true);
         float x, y;
         SDL_GetMouseState(&x, &y);
@@ -975,7 +1009,7 @@ static void grab(bool on)
     } else if (!on && s_warping) {
         s_warping = false;
         SDL_SetWindowMouseGrab(s_window, false);
-        SDL_ShowCursor();
+        show_pointer();
     } else if (!on) {
         SDL_SetWindowRelativeMouseMode(s_window, false);
     }
@@ -1161,8 +1195,7 @@ static void mouse_motion(const SDL_MouseMotionEvent *m)
                  * click that made it that came first): then again
                  */
                 if (now_ns() - s_warp_ns > 200000000ull) {
-                    SDL_ShowCursor();
-                    SDL_HideCursor();
+                    hide_pointer();
                     centre_pointer(m->x, m->y);
                 }
                 return;
