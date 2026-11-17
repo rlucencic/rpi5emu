@@ -173,6 +173,13 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   each: 2793 of 3200 values lost). A change now reads the file again under
   a lock on its folder (`flock`) and writes through a temporary file of
   its own (`mkstemp`): none lost. Reads come from memory.
+- **glibc's `exit()` takes every stdio stream's lock** (2.43, the Pi's):
+  the console's stdin thread, blocked in `fgets(stdin)`, held stdin's, so
+  a program run with its stdin open (`pi.sh run`: the ssh session's) said
+  "bye" and hung there until its ssh ended, the console and web ports
+  still held; an idle console client the same. The console reads its
+  lines with `read()` now: a thread's blocking read, never through stdio.
+  "bye" in the log isn't the end: check the process (`pgrep`).
 - Pipewire on the Pi without a monitor plays into `auto_null`: the sound
   runs (the stream is there) but nothing is heard.
 

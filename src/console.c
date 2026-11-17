@@ -260,11 +260,60 @@ static void execute(char *line)
     }
 }
 
+/* Lines read from a file descriptor, not through stdio: a thread blocked in
+ * fgets() holds its FILE's lock, and glibc's exit() takes every FILE's lock
+ * (2.43 does): the program said "bye" and hung until stdin closed (pi.sh
+ * run: until its ssh ended), or until an idle console client went
+ */
+typedef struct {
+    int fd;
+    size_t len;
+    char buf[4096];
+} line_reader_t;
+
+/* The next line, its '\n' kept (as fgets: a longer one comes in parts);
+ * false at the end or on an error
+ */
+static bool read_line(line_reader_t *r, char *line, size_t size)
+{
+    for (;;) {
+        char *nl = memchr(r->buf, '\n', r->len);
+        size_t n = nl ? (size_t)(nl - r->buf) + 1 : r->len;
+        if (nl || r->len == sizeof(r->buf)) {
+            if (n > size - 1) {
+                n = size - 1;
+            }
+            memcpy(line, r->buf, n);
+            line[n] = 0;
+            r->len -= n;
+            memmove(r->buf, r->buf + n, r->len);
+            return true;
+        }
+        ssize_t got = read(r->fd, r->buf + r->len, sizeof(r->buf) - r->len);
+        if (got < 0 && errno == EINTR) {
+            continue;
+        }
+        if (got <= 0) {
+            if (r->len == 0) {
+                return false;
+            }
+            n = r->len < size - 1 ? r->len : size - 1;      /* the last line, no '\n' */
+            memcpy(line, r->buf, n);
+            line[n] = 0;
+            r->len -= n;
+            memmove(r->buf, r->buf + n, r->len);
+            return true;
+        }
+        r->len += (size_t)got;
+    }
+}
+
 static void *stdin_thread(void *arg)
 {
+    static line_reader_t in = { .fd = 0 };
     char line[4096];
     t_out = 1;
-    while (fgets(line, sizeof(line), stdin) != NULL) {
+    while (read_line(&in, line, sizeof(line))) {
         execute(line);
     }
     return NULL;
@@ -273,14 +322,16 @@ static void *stdin_thread(void *arg)
 static void *client_thread(void *arg)
 {
     int fd = (int)(intptr_t)arg;
-    FILE *in = fdopen(dup(fd), "r");
+    line_reader_t *in = malloc(sizeof(*in));
     char line[4096];
     t_out = fd;
-    while (in != NULL && fgets(line, sizeof(line), in) != NULL) {
-        execute(line);
-    }
     if (in != NULL) {
-        fclose(in);
+        in->fd = fd;
+        in->len = 0;
+        while (read_line(in, line, sizeof(line))) {
+            execute(line);
+        }
+        free(in);
     }
     close(fd);
     return NULL;
