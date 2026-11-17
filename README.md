@@ -44,7 +44,7 @@ machine for the boards and the Pi.
 | `src/console.c` | Line commands on the terminal and on `127.0.0.1:6400`: the state, keys and typing (the machine's), drives, screenshots, choices, the setup screen |
 | `src/disks.c`, `src/settings.c` | The data folder's images for the drives, remembered across starts; the settings file, sections as the boards' NVS namespaces (`emu/nvs.h` gives the boards' settings code the NVS calls) |
 | esp32emu's `emudbg` | The debugger of the family (`--debug <port>`, the VS Code extension [esp32emu-vscode](https://github.com/rlucencic/esp32emu-vscode)) |
-| `tools/` | `pi.sh` (sync to the Pi, build, run there with the window here, or headless), `console.sh`, `capture.sh`, and the porting scripts that carry a machine's glue over from its esp32 sibling |
+| `tools/` | `pi.sh` (sync to the Pi, build, run there with the window here, or headless), `console.sh`, `capture.sh`; `pi.ps1` and `console.ps1`, the same from Windows; and the porting scripts that carry a machine's glue over from its esp32 sibling |
 
 ## Building
 

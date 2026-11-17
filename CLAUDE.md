@@ -38,6 +38,7 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 | `tools/port_rom_store.py` | A `rom_store.c` of the usual shape (a table of names, partitions and sizes) onto `emu_rom_read()` |
 | `tools/pi.sh` | Sync to the Pi, build there, run with X forwarding |
 | `tools/console.sh` | Console commands to the Pi's emulator |
+| `tools/pi.ps1`, `tools/console.ps1` | The same from Windows (PowerShell 7.4+): the trees synced through git, not rsync |
 | `tools/capture.sh`, `tools/xwd2png.py` | The forwarded window as a PNG |
 
 ## Developing (the user's setup)
@@ -57,6 +58,21 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   XQuartz is the X server (`brew install --cask xquartz`), `pi.sh run`
   starts it and has SDL draw in software. `capture.sh` wants
   `PATH=/opt/X11/bin:$PATH` and Python's PIL there.
+- Or from the Windows PC (`C:\Development`, PowerShell 7, Windows' OpenSSH,
+  Git for Windows; its login isn't `robert`: `~/.ssh/config` gives
+  `robert-pi5` the user): `tools\pi.ps1 rpi5zx build`, `run`, `headless`,
+  `shot`, `log`, and `tools\console.ps1 i 'T 10 PRINT 1\n' '@4'` (`@n`
+  quoted: PowerShell's splatting). No rsync there, and git checks text
+  files out with CRLF (`core.autocrlf`): `pi.ps1` makes each working tree
+  a commit (a temporary index, new and uncommitted files too, not the
+  ignored ones), pushes it to the Pi's clone (`refs/pi-sync/head`) and
+  checks it out there with an index of its own (`.git/pi-sync.index`; the
+  Pi's HEAD and index untouched): LF again, the executable bits kept, only
+  the changed files rewritten (ninja then has nothing to do), a file
+  deleted here deleted there. `run` uses MobaXterm's X server (or VcXsrv,
+  started when nothing answers on `localhost:0`) and draws as on the Mac
+  (software, no XInput2): 16 pictures a second with the whole border
+  changing.
 - ROMs on the Pi: `~/rpi5emu/roms` (copied from the esp32 projects' `roms/`,
   not in git).
 - Driving it: `tools/console.sh 'i' 'T 10 PRINT 1\n' @4 's /tmp/x.png'`
