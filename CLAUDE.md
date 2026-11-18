@@ -201,7 +201,22 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 
 ## To do
 
-- **NEXT PLANNED IMPLEMENTATION — Acorn Electron (1983) emulator (`rpi5electron`)**
+- **NEXT PLANNED IMPLEMENTATION — Sinclair QL (1984) emulator (`rpi5ql`)**
+
+  Develop for Raspberry Pi 5 alongside `esp32ql` (ESP32-S3). Compile its
+  portable QL machine core and use `emu_machine_t` for SDL 3 display, audio,
+  and keyboard input. Share compatibility tests with the ESP32-S3 project.
+
+  - Motorola 68008 at 7.5 MHz, with the shared Musashi core as the starting
+    point for the instruction set and QL-specific timing for the 8-bit bus.
+  - 128 KB RAM, 48 KB ROM, and ZX8301 video and memory control. Support
+    512×256 four-colour and 256×256 eight-colour display modes.
+  - ZX8302 peripheral control, Intel 8049 keyboard and sound behaviour,
+    and both built-in Microdrives with cartridge image support.
+  - Boot QDOS into SuperBASIC and test original software, including loading
+    and saving a document in Psion Quill.
+
+- **Acorn Electron (1983) emulator (`rpi5electron`)** follows the Sinclair QL.
 
   Develop for Raspberry Pi 5 alongside `esp32electron` (ESP32-S3). Compile
   its portable machine core and shared `m6502` core, and use `emu_machine_t`
