@@ -1,5 +1,5 @@
 /*
- * Settings in ~/.config/rpi5emu/settings.ini: "[section]" lines, then
+ * Settings in ~/.config/sdlemu/settings.ini: "[section]" lines, then
  * "key=value" lines (the value is the rest of the line). Kept in memory,
  * the whole file written again at each change.
  *
@@ -119,11 +119,19 @@ static void load(void)
     }
     s_loaded = true;
     const char *xdg = getenv("XDG_CONFIG_HOME");
-    if (xdg != NULL && xdg[0] == '/') {
-        snprintf(s_path, sizeof(s_path), "%s/rpi5emu/settings.ini", xdg);
-    } else {
-        const char *home = getenv("HOME");
-        snprintf(s_path, sizeof(s_path), "%s/.config/rpi5emu/settings.ini", home ? home : ".");
+    const char *home = getenv("HOME");
+    bool use_xdg = xdg != NULL && xdg[0] == '/';
+    const char *base = use_xdg ? xdg : (home ? home : ".");
+    const char *config = use_xdg ? "" : "/.config";
+    snprintf(s_path, sizeof(s_path), "%s%s/sdlemu/settings.ini", base, config);
+    struct stat st;
+    if (stat(s_path, &st) != 0 && errno == ENOENT) {
+        char legacy[sizeof(s_path)];
+        int len = snprintf(legacy, sizeof(legacy), "%s%s/rpi5emu/settings.ini", base, config);
+        if (len >= 0 && (size_t)len < sizeof(legacy) &&
+            stat(legacy, &st) == 0 && S_ISREG(st.st_mode)) {
+            memcpy(s_path, legacy, (size_t)len + 1);
+        }
     }
     read_file();
 }

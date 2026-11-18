@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""port_finish.py <rpi5 project>/src/main.c <esp32 sibling name>
+"""port_finish.py <sdl project>/src/main.c <esp32 sibling name>
 
 The usual hand edits after port_glue.py, where the esp32* glue follows its
 usual shape (each one reported, or "not found": then by hand):
@@ -30,7 +30,7 @@ def main():
 
     board = r"(Makerfabs[\s*]+MaTouch[\s*]+ESP32-S3[\s*]+7\"|M5Stack[\s*]+Tab5)"
     edit("header: the board", rf"[\s*]+on[\s*]+the[\s*]+{board}([\s*]+(and|or)[\s*]+the[\s*]+{board})?\.",
-         " on the Raspberry Pi 5.", re.S)
+         " with SDL 3.", re.S)
     words = "The board side (.*?) is the shared runtime in ../esp32emu; this file plugs the (.*?) into it:"
     pattern = (re.escape(words).replace(r"\(\.\*\?\)", "(.*?)").replace(r"\ ", r"[\s*]+")
                + r"(.*?)(?=\n \*\s*\n|\n \*/)")
@@ -39,7 +39,7 @@ def main():
         machine = re.sub(r"[\s*]+", " ", m.group(2))
         rest = re.sub(r"[\s*]+", " ", m.group(3)).strip()
         text = ("The Pi's side (window, sound, keyboard, setup screen, web page, console, settings, the data "
-                f"folder) is the shared runtime in ../rpi5emu, the machine {sibling}'s; this file plugs the "
+                f"folder) is the shared runtime in ../sdlemu, the machine {sibling}'s; this file plugs the "
                 f"{machine} into it, as {sibling}'s main/main.c does on the boards (and mostly is that file): "
                 f"{rest}")
         return textwrap.fill(text, 72, subsequent_indent=" * ")

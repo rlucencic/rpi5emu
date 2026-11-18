@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""port_rom_store.py <esp32 project> <rpi5 project>
+"""port_rom_store.py <esp32 project> <sdl project>
 
-An esp32* project's main/rom_store.c and .h into the rpi5* project's src/,
+An esp32* project's main/rom_store.c and .h into the sdl* project's src/,
 for the machine's roms/ folder: the flash partition's reading (from_partition())
-goes, the SD card's (from_sd()) becomes emu_rom_read() (rpi5emu), the
+goes, the SD card's (from_sd()) becomes emu_rom_read() (sdlemu), the
 comments say so. The usual shape only: what doesn't fit is reported, and
 then ported by hand.
 """

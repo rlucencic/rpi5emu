@@ -15,11 +15,17 @@
 #   atari/     into xl/
 # Nothing is overwritten; what isn't known stays where it is, listed. An old
 # folder left empty goes. -n: only say what it would do. The data folder:
-# $RPI5EMU_HOME, else ~/rpi5emu.
+# Uses the same environment variables and default paths as the runtime.
 set -u
 dry=
 if [ "${1:-}" = -n ]; then dry=1; shift; fi
-data=${1:-${RPI5EMU_HOME:-$HOME/rpi5emu}}
+data=${1:-${SDLEMU_HOME:-${RPI5EMU_HOME:-}}}
+if [ -z "$data" ]; then
+    data=$HOME/sdlemu
+    if [ ! -e "$data" ] && [ -d "$HOME/rpi5emu" ]; then
+        data=$HOME/rpi5emu
+    fi
+fi
 cd "$data" || exit 1
 moved=0
 kept=0

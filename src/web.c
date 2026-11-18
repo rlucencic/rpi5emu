@@ -43,8 +43,8 @@
 
 static const char *TAG = "web";
 
-extern const unsigned char rpi5emu_index_html[];
-extern const size_t rpi5emu_index_html_size;
+extern const unsigned char sdlemu_index_html[];
+extern const size_t sdlemu_index_html_size;
 
 #define HEADER_MAX  16384
 #define CHUNK       65536
@@ -200,12 +200,12 @@ static void info_get(req_t *r)
     emu_json_str(&j, "name", m->name);
     emu_json_str(&j, "short_name", m->short_name);
     emu_json_str(&j, "hostname", hostname);
-    emu_json_str(&j, "board", "Raspberry Pi");
-    emu_json_str(&j, "host", "Pi");
+    emu_json_str(&j, "board", "Desktop");
+    emu_json_str(&j, "host", "Computer");
     emu_json_str(&j, "storage", "data folder");
     emu_json_str(&j, "storage_title", "In the data folder");
     char about[1400], shown[1200];
-    snprintf(about, sizeof(about), "The emulator on the Raspberry Pi (%s), and the disk images in its data folder, %s/%s.",
+    snprintf(about, sizeof(about), "The emulator on %s and the disk images in its data folder, %s/%s.",
              hostname, emu_short_path(emu_data_dir(), shown, sizeof(shown)), m->disks ? disks_config()->folder : "");
     emu_json_str(&j, "about", about);
     emu_json_bool(&j, "script", m->web_script != NULL);
@@ -565,7 +565,7 @@ static void route(req_t *r)
          post = strcmp(m, "POST") == 0, del = strcmp(m, "DELETE") == 0;
     bool disks = emu_machine()->disks != NULL && disks_ready();
     if (get && (strcmp(p, "/") == 0 || strcmp(p, "/index.html") == 0)) {
-        respond(r, "200 OK", "text/html; charset=utf-8", rpi5emu_index_html, rpi5emu_index_html_size, NULL);
+        respond(r, "200 OK", "text/html; charset=utf-8", sdlemu_index_html, sdlemu_index_html_size, NULL);
     } else if (get && strcmp(p, "/machine.js") == 0) {
         const emu_machine_t *mc = emu_machine();
         if (mc->web_script) {

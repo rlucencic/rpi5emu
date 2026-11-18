@@ -1,21 +1,19 @@
-# rpi5emu: the shared runtime for the rpi5* emulators
+# sdlemu: the shared runtime for the sdl* emulators
 
-The Raspberry Pi 5 (64-bit Ubuntu 26.04, SDL 3) side of the esp32emu
-family: every `esp32*` emulator has an `rpi5*` project (the user's plan,
-2026-11-15), each a window of its own (X11 or Wayland). C, CMake. Users:
-`../rpi5zx`, `rpi5cpc`, `rpi5cbm`, `rpi5coco`, `rpi5gs`, `rpi5msx`,
-`rpi5xl`, `rpi5ste`, `rpi5pc`, `rpi5mac`, `rpi5mac2`, `rpi5mac3`,
-`rpi5arc`, `rpi5ami`: all 14 (the last 13 ported the same day). A change
-here: build them all (`for p in ...; do tools/pi.sh $p build; done`).
+The SDL 3 desktop side of the esp32emu family. The same CMake projects
+target Linux arm64 (including Raspberry Pi 5), Linux amd64 and macOS arm64.
+Users are `sdlzx`, `sdlcpc`, `sdlcbm`, `sdlcoco`, `sdlgs`, `sdlmsx`,
+`sdlxl`, `sdlste`, `sdlpc`, `sdlmac`, `sdlmac2`, `sdlmac3`, `sdlarc`
+and `sdlami`. Build the whole matrix for shared runtime changes.
 
-**One machine, two platforms**: an rpi5* project compiles its esp32*
+An SDL machine project compiles its ESP32
 sibling's platform-independent core (`../esp32zx/components/zx`) and
-esp32emu's CPU cores (`rpi5emu_add_cores()`, `../esp32emu/components`), and
+esp32emu's CPU cores (`sdlemu_add_cores()`, `../esp32emu/components`), and
 its own `src/main.c`: the sibling's `main/main.c` ported (mostly the same
 file: keymap, drives, status, console). A fix in a core is a fix for the
 boards too; a core change must keep the boards' builds working (esp32emu's
-CLAUDE.md: all projects built). rpi5emu's interface is esp32emu's
-`emu_machine_t` (`include/emu/emu.h`; the Pi's own extra: `shutdown()`,
+CLAUDE.md: all projects built). sdlemu's interface is esp32emu's
+`emu_machine_t` (`include/emu/emu.h`; the desktop additions: `shutdown()`,
 `emu_info_t.pictures`), `disks.h`, `json.h` (copied: keep them in step),
 plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 
@@ -29,11 +27,11 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 | `src/web.c` | The boards' web page (esp32emu's `web/index.html`, built in by `cmake/embed.cmake`) and its API, a thread a connection |
 | `src/console.c` | Line commands from stdin and 127.0.0.1:6400 |
 | `src/disks.c` | esp32emu's disks.c on the data folder; a name starting with `/` is a path anywhere |
-| `src/settings.c` | `~/.config/rpi5emu/settings.ini`, sections as NVS namespaces |
+| `src/settings.c` | `~/.config/sdlemu/settings.ini`, sections as NVS namespaces |
 | `src/png.c` | Screenshots (libpng) |
 | `include/emu/nvs.h` | ESP-IDF's NVS calls over the settings file: the esp32* `settings.c` files carry over as they are |
-| `cmake/embed.cmake`, `rpi5emu_embed()` | A file built in (the web page; a machine's web script: `NAME` and `NAME_SIZE` for `.web_script`, `.web_script_end`) |
-| `tools/port_glue.py` | An esp32* project's `main/*.c` into an rpi5* project's `src/`: the board APIs replaced (log, NVS, heap_caps, delays, `app_main`), `#if CONFIG_IDF_TARGET_ESP32P4` resolved to the Tab5's branch; then lists what's left |
+| `cmake/embed.cmake`, `sdlemu_embed()` | A file built in (the web page; a machine's web script: `NAME` and `NAME_SIZE` for `.web_script`, `.web_script_end`) |
+| `tools/port_glue.py` | An esp32* project's `main/*.c` into an sdl* project's `src/`: the board APIs replaced (log, NVS, heap_caps, delays, `app_main`), `#if CONFIG_IDF_TARGET_ESP32P4` resolved to the Tab5's branch; then lists what's left |
 | `tools/port_finish.py` | The usual hand edits after it (the header, the ROM messages, the SD card's wording, `shutdown()` from `flush()`) |
 | `tools/port_rom_store.py` | A `rom_store.c` of the usual shape (a table of names, partitions and sizes) onto `emu_rom_read()` |
 | `tools/pi.sh` | Sync to the Pi, build there, run with X forwarding |
@@ -44,15 +42,14 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 
 ## Developing (the user's setup)
 
-- Edit on the development PC (`/home/robert/Development`, Zorin, x86-64:
-  no SDL 3 packages there), build and run on the Pi: `robert@robert-pi5`
+- Build locally with CMake and the [desktop dependencies](README.md#building). The
+  Pi is also available for native Linux arm64 tests: `robert@robert-pi5`
   over SSH (key auth; `~/Development` with the same layout; gh and GitHub
-  over SSH there too). `tools/pi.sh rpi5zx build` rsyncs the working trees
-  (rpi5emu, the project, esp32emu, the esp32 sibling: uncommitted changes
-  too, no .git, no build folders) and builds; `tools/pi.sh rpi5zx run
+  over SSH there too). `tools/pi.sh sdlzx build` rsyncs the working trees
+  (sdlemu, the project, esp32emu, the esp32 sibling: uncommitted changes
+  too, no .git, no build folders) and builds; `tools/pi.sh sdlzx run
   [options]` runs it with its window here (`ssh -C -Y`). The Pi's clones are
-  git repos whose working trees rsync overwrites: after a push, `git fetch
-  && git reset --hard origin/main` there.
+  git repos whose working trees rsync overwrites: after a push, `git pull --ff-only` there.
 - Or from the Mac (`~/Development` there too): `~/.ssh/config` gives
   `robert-pi5` the user `robert` (the Mac's login is another) and
   `XAuthLocation /opt/X11/bin/xauth` (macOS's ssh looks in `/usr/X11R6`);
@@ -61,7 +58,7 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   `PATH=/opt/X11/bin:$PATH` and Python's PIL there.
 - Or from the Windows PC (`C:\Development`, PowerShell 7, Windows' OpenSSH,
   Git for Windows; its login isn't `robert`: `~/.ssh/config` gives
-  `robert-pi5` the user): `tools\pi.ps1 rpi5zx build`, `run`, `headless`,
+  `robert-pi5` the user): `tools\pi.ps1 sdlzx build`, `run`, `headless`,
   `shot`, `log`, and `tools\console.ps1 i 'T 10 PRINT 1\n' '@4'` (`@n`
   quoted: PowerShell's splatting). No rsync there, and git checks text
   files out with CRLF (`core.autocrlf`): `pi.ps1` makes each working tree
@@ -74,7 +71,7 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   started when nothing answers on `localhost:0`) and draws as on the Mac
   (software, no XInput2): 16 pictures a second with the whole border
   changing.
-- The data folder (`~/rpi5emu` on the Pi; the boards' SD cards the same):
+- The data folder (`~/sdlemu` on the Pi; the boards' SD cards the same):
   a folder for each machine, the disk config's `.folder` (`zx cpc cbm coco
   apple2gs msx xl st pc arc amiga`, the three Macs sharing `mac`), its
   images in it and its ROMs in its `roms/` (`emu_rom_dir()`, made at start;
@@ -100,25 +97,25 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 
 ## Porting a machine (how the 13 went)
 
-1. `git init` an `rpi5X` beside the others; `tools/port_glue.py esp32X
-   rpi5X`, `tools/port_finish.py rpi5X/src/main.c esp32X`, and
-   `tools/port_rom_store.py esp32X rpi5X` (or a `rom_store.c` by hand: the
+1. `git init` an `sdlX` beside the others; `tools/port_glue.py esp32X
+   sdlX`, `tools/port_finish.py sdlX/src/main.c esp32X`, and
+   `tools/port_rom_store.py esp32X sdlX` (or a `rom_store.c` by hand: the
    Macs, the Archimedes and the Amiga find their ROMs by contents).
 2. By hand what's left: memory the boards size by PSRAM or restart into
    (`emu_reboot_into_machine()`: allocate at `start()` instead), FreeRTOS
    tasks (threads, semaphores, mutexes), `esp_timer` (`clock_gettime()`),
-   web scripts (`rpi5emu_embed()`), Kconfig options (constants with the
+   web scripts (`sdlemu_embed()`), Kconfig options (constants with the
    Kconfig defaults), the boards' opcode table copies (the ST's and Macs'
    sizes count 4-byte pointers: pass none).
 3. `CMakeLists.txt` from the core's host Makefile: its sources, include
    folders, defines (`CONFIG_Z80_*`, `M68K_*`) and cores
-   (`rpi5emu_add_cores()`), zlib where the host build links it.
+   (`sdlemu_add_cores()`), zlib where the host build links it.
 4. The core's `#ifndef ESP_PLATFORM` parts are its host test build's: they
    are compiled here too and may want symbols the host harness defines
    (esp32gs's `gs_host_*` switches, esp32ami's `ami_host_watch_hit()`):
    defined in the glue as the boards behave.
-5. ROMs to the machine's `~/rpi5emu/<folder>/roms` on the Pi (`scp` from
-   the esp32 project's `roms/`), `tools/pi.sh rpi5X build`, `headless`,
+5. ROMs to the machine's `~/sdlemu/<folder>/roms` on the Pi (`scp` from
+   the esp32 project's `roms/`), `tools/pi.sh sdlX build`, `headless`,
    `console.sh`, `shot`.
 
 ## Lessons
@@ -201,9 +198,9 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 
 ## To do
 
-- **NEXT PLANNED IMPLEMENTATION — Sinclair QL (1984) emulator (`rpi5ql`)**
+- **NEXT PLANNED IMPLEMENTATION — Sinclair QL (1984) emulator (`sdlql`)**
 
-  Develop for Raspberry Pi 5 alongside `esp32ql` (ESP32-S3). Compile its
+  Develop for the SDL desktop runtime alongside `esp32ql` (ESP32-S3). Compile its
   portable QL machine core and use `emu_machine_t` for SDL 3 display, audio,
   and keyboard input. Share compatibility tests with the ESP32-S3 project.
 
@@ -216,9 +213,9 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
   - Boot QDOS into SuperBASIC and test original software, including loading
     and saving a document in Psion Quill.
 
-- **Acorn Electron (1983) emulator (`rpi5electron`)** follows the Sinclair QL.
+- **Acorn Electron (1983) emulator (`sdlelectron`)** follows the Sinclair QL.
 
-  Develop for Raspberry Pi 5 alongside `esp32electron` (ESP32-S3). Compile
+  Develop for the SDL desktop runtime alongside `esp32electron` (ESP32-S3). Compile
   its portable machine core and shared `m6502` core, and use `emu_machine_t`
   to connect with the SDL 3 display, audio, and keyboard. Share
   compatibility tests with the ESP32-S3 project.
@@ -231,11 +228,11 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
     Electron software. Consider Plus 1 and Plus 3 support after the base
     machine.
 
-- **Oric Atmos (1984) emulator (`rpi5oric`)** follows the Acorn Electron.
+- **Oric Atmos (1984) emulator (`sdloric`)** follows the Acorn Electron.
 
   Develop alongside `esp32oric` (ESP32-S3). Follow the existing sibling-project
   layout by compiling the portable `esp32oric` machine core and integrating
-  with `rpi5emu` through `emu_machine_t`. Optimize for Raspberry Pi 5 with
+  with `sdlemu` through `emu_machine_t`. Optimize for Raspberry Pi 5 with
   native display and audio output through SDL 3, USB and Bluetooth keyboard
   support, and accurate timing for high software compatibility. Share
   emulator design concepts, compatibility tests, and technical

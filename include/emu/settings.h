@@ -1,9 +1,9 @@
 #pragma once
 
 /*
- * Settings, where the boards have NVS: ~/.config/rpi5emu/settings.ini
+ * Settings, where the boards have NVS: ~/.config/sdlemu/settings.ini
  * ($XDG_CONFIG_HOME if set), sections as NVS's namespaces ("zx", "zxdisks",
- * "speaker"), shared by every rpi5* machine as NVS is by the board's
+ * "speaker"), shared by every sdl* machine as NVS is by the board's
  * projects. Each set writes the file (through a temporary one: never half
  * written). Safe from any thread.
  */

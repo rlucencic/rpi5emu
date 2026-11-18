@@ -13,6 +13,9 @@
 #include <netinet/in.h>
 #include <sys/statvfs.h>
 #include <math.h>
+#ifdef __APPLE__
+#include <mach/mach.h>
+#endif
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -80,19 +83,37 @@ static uint64_t now_ns(void)
 
 static void sleep_until(uint64_t ns)
 {
+#ifdef __APPLE__
+    uint64_t now = now_ns();
+    if (now < ns) {
+        SDL_DelayPrecise(ns - now);
+    }
+#else
     struct timespec ts = { (time_t)(ns / 1000000000ull), (long)(ns % 1000000000ull) };
     while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL) == EINTR) {
     }
+#endif
 }
 
 static double thread_cpu_s(pthread_t thread)
 {
+#ifdef __APPLE__
+    thread_basic_info_data_t info;
+    mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+    if (thread_info(pthread_mach_thread_np(thread), THREAD_BASIC_INFO,
+                    (thread_info_t)&info, &count) != KERN_SUCCESS) {
+        return 0;
+    }
+    return info.user_time.seconds + info.system_time.seconds +
+           (info.user_time.microseconds + info.system_time.microseconds) / 1e6;
+#else
     clockid_t cid;
     struct timespec ts;
     if (pthread_getcpuclockid(thread, &cid) != 0 || clock_gettime(cid, &ts) != 0) {
         return 0;
     }
     return ts.tv_sec + ts.tv_nsec / 1e9;
+#endif
 }
 
 /* ---- State ---- */
@@ -1319,14 +1340,18 @@ typedef struct {
     char model[96], hostname[96], address[160];
     long uptime;
     uint64_t mem_total, mem_free, data_total, data_free;
-} host_t;
+} emu_host_info_t;
 
-static void host_info(host_t *h)
+static void emu_host_info(emu_host_info_t *h)
 {
     memset(h, 0, sizeof(*h));
     FILE *f = fopen("/proc/device-tree/model", "r");
     if (f == NULL || fgets(h->model, sizeof(h->model), f) == NULL) {
+#ifdef __APPLE__
+        snprintf(h->model, sizeof(h->model), "macOS");
+#else
         snprintf(h->model, sizeof(h->model), "Linux");
+#endif
     }
     if (f) {
         fclose(f);
@@ -1462,11 +1487,11 @@ void emu_status_json(char *buf, size_t len)
     emu_json_end_array(&j);
 
     /* The computer: the boards' fields the page reads, and rows of its own */
-    host_t h;
-    host_info(&h);
+    emu_host_info_t h;
+    emu_host_info(&h);
     emu_json_object(&j, "board");
     emu_json_str(&j, "name", h.model);
-    emu_json_str(&j, "title", "Raspberry Pi");
+    emu_json_str(&j, "title", "Desktop");
     emu_json_int(&j, "uptime", h.uptime);
     emu_json_object(&j, "wifi");
     emu_json_str(&j, "ssid", NULL);
@@ -1544,14 +1569,14 @@ static void choice_list(FILE *f)
 static void usage(const char *prog, FILE *f)
 {
     fprintf(f,
-            "%s: %s on the Raspberry Pi (rpi5emu)\n\n"
+            "%s: %s (sdlemu desktop emulator)\n\n"
             "Usage: %s [options] [images ...]\n\n"
             "  images               disks, tapes, snapshots ...: each into the first drive\n"
             "                       that takes it\n"
             "  -S, --start          start the machine at once (else the setup screen first)\n"
             "  -d, --data DIR       the data folder: a folder for each machine, its disks\n"
             "                       and its roms/\n"
-            "                       (default $RPI5EMU_HOME, else ~/rpi5emu)\n"
+            "                       (default $SDLEMU_HOME, else ~/sdlemu)\n"
             "  -f, --fullscreen     start full screen (Ctrl+Alt+F switches)\n"
             "  -s, --scale N        the window's size: N times the machine's own (default 1)\n"
             "  -c, --choice L=NAME  a setup choice, e.g. --choice %s=%s (kept, as the\n"
@@ -1642,19 +1667,31 @@ static void make_dirs(const char *path)
 
 static void set_data_dir(void)
 {
-    const char *d = opt.data_dir ? opt.data_dir : getenv("RPI5EMU_HOME");
+    const char *d = opt.data_dir ? opt.data_dir : getenv("SDLEMU_HOME");
+    if (opt.data_dir == NULL && (d == NULL || !d[0])) {
+        d = getenv("RPI5EMU_HOME");
+    }
+    struct stat st;
     if (d != NULL && d[0]) {
         snprintf(s_data_dir, sizeof(s_data_dir), "%s", d);
     } else {
         const char *home = getenv("HOME");
-        snprintf(s_data_dir, sizeof(s_data_dir), "%s/rpi5emu", home ? home : ".");
+        home = home ? home : ".";
+        snprintf(s_data_dir, sizeof(s_data_dir), "%s/sdlemu", home);
+        if (stat(s_data_dir, &st) != 0 && errno == ENOENT) {
+            char legacy[sizeof(s_data_dir)];
+            int len = snprintf(legacy, sizeof(legacy), "%s/rpi5emu", home);
+            if (len >= 0 && (size_t)len < sizeof(legacy) &&
+                stat(legacy, &st) == 0 && S_ISDIR(st.st_mode)) {
+                memcpy(s_data_dir, legacy, (size_t)len + 1);
+            }
+        }
     }
     size_t n = strlen(s_data_dir);
     while (n > 1 && s_data_dir[n - 1] == '/') {
         s_data_dir[--n] = 0;
     }
     make_dirs(s_data_dir);
-    struct stat st;
     s_info.sd_card = stat(s_data_dir, &st) == 0 && S_ISDIR(st.st_mode);
     /* Each machine's ROMs in its own folder, none shared but the Macs' */
     if (M->disks != NULL && M->disks->folder != NULL && M->disks->folder[0]) {

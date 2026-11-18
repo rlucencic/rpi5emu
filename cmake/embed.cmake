@@ -10,14 +10,14 @@ string(LENGTH "${hex}" digits)
 math(EXPR size "${digits} / 2")
 string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
 file(WRITE "${OUT}"
-    "/* Made from ${IN} by rpi5emu's cmake/embed.cmake */\n"
+    "/* Made from ${IN} by sdlemu's cmake/embed.cmake */\n"
     "#include <stddef.h>\n"
     "const ${TYPE} ${NAME}[] = {${bytes}0};\n"
     "const size_t ${NAME}_size = sizeof(${NAME}) - 1;\n")
 if(HEADER)
     string(TOUPPER "${NAME}" upper)
     file(WRITE "${HEADER}"
-        "/* Made from ${IN} by rpi5emu's cmake/embed.cmake */\n"
+        "/* Made from ${IN} by sdlemu's cmake/embed.cmake */\n"
         "#pragma once\n"
         "#include <stddef.h>\n"
         "#define ${upper}_SIZE ${size}\n"

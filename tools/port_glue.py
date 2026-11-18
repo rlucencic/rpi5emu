@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""port_glue.py <esp32 project> <rpi5 project> [files ...]
+"""port_glue.py <esp32 project> <sdl project> [files ...]
 
 Copies an esp32* emulator's glue (main/*.c, *.h: default all but rom_store,
-which reads flash partitions and is written anew) into an rpi5* project's
-src/, with the mechanical changes for rpi5emu:
+which reads flash partitions and is written anew) into an sdl* project's
+src/, with the mechanical changes for sdlemu:
 
   FreeRTOS, esp_heap_caps, esp_timer includes   gone (<unistd.h> instead)
   esp_log.h, ESP_LOGx                           emu/log.h, EMU_LOGx

@@ -1,6 +1,6 @@
 # tools/console.ps1 [-p port] 'cmd' ['@secs' | 'cmd' ...]
 #
-# console.sh for Windows: line commands to an rpi5* emulator's console on the
+# console.sh for Windows: line commands to an sdl* emulator's console on the
 # Pi (127.0.0.1:6400 there, through ssh; RPI5_HOST, default robert-pi5):
 # '@n' waits n seconds between them (quoted: a bare @ is PowerShell's
 # splatting); the answers come back at the end. E.g.

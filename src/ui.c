@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#ifdef RPI5EMU_TTF
+#ifdef SDLEMU_TTF
 #include <SDL3_ttf/SDL_ttf.h>
 #endif
 #include "emu/emu.h"
@@ -67,7 +67,7 @@ static struct {
     char **images;              /* PAGE_IMAGES' list */
     int image_count, scroll;
     bool dirty;
-#ifdef RPI5EMU_TTF
+#ifdef SDLEMU_TTF
     TTF_Font *fonts[F_COUNT];
     float font_k;
 #endif
@@ -75,7 +75,7 @@ static struct {
 
 /* ---- Text ---- */
 
-#ifdef RPI5EMU_TTF
+#ifdef SDLEMU_TTF
 static const char *const font_files[] = {
     "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
     "/usr/share/fonts/truetype/ubuntu/Ubuntu[wdth,wght].ttf",
@@ -106,7 +106,7 @@ static void fonts_for(float k)
 
 static float text_width(font_t f, const char *s)
 {
-#ifdef RPI5EMU_TTF
+#ifdef SDLEMU_TTF
     if (ui.fonts[f]) {
         int w = 0, h = 0;
         TTF_GetStringSize(ui.fonts[f], s, 0, &w, &h);
@@ -123,7 +123,7 @@ static void text(font_t f, float x, float y, rgb_t c, const char *s)
         return;
     }
     float px = ui.ox + x * ui.k, py = ui.oy + y * ui.k;
-#ifdef RPI5EMU_TTF
+#ifdef SDLEMU_TTF
     if (ui.fonts[f]) {
         SDL_Surface *surface = TTF_RenderText_Blended(ui.fonts[f], s, 0, (SDL_Color){ c.r, c.g, c.b, 255 });
         if (surface) {
@@ -437,7 +437,7 @@ bool ui_is_open(void)
 void ui_init(SDL_Renderer *renderer)
 {
     ui.renderer = renderer;
-#ifdef RPI5EMU_TTF
+#ifdef SDLEMU_TTF
     if (!TTF_Init()) {
         EMU_LOGW(TAG, "SDL_ttf: %s", SDL_GetError());
     }
@@ -725,7 +725,7 @@ void ui_draw(int ww, int wh)
     ui.k = ww / (float)CANVAS_W < wh / (float)CANVAS_H ? ww / (float)CANVAS_W : wh / (float)CANVAS_H;
     ui.ox = (ww - CANVAS_W * ui.k) / 2;
     ui.oy = (wh - CANVAS_H * ui.k) / 2;
-#ifdef RPI5EMU_TTF
+#ifdef SDLEMU_TTF
     fonts_for(ui.k);
 #endif
     SDL_SetRenderDrawColor(ui.renderer, C_BG.r, C_BG.g, C_BG.b, 255);

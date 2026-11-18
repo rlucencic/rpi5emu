@@ -1,9 +1,9 @@
 # tools/pi.ps1 <project> [build | run [options] | sync | headless [options] | shot out.png | log]
 #
 # pi.sh for Windows (PowerShell 7.4+, Windows' OpenSSH, Git for Windows): from
-# this computer to the Pi (RPI5_HOST, default robert-pi5), where the rpi5*
+# this computer to the Pi (RPI5_HOST, default robert-pi5), where the sdl*
 # projects are built and run:
-#   sync    the working trees (rpi5emu, the project, esp32emu and the
+#   sync    the working trees (sdlemu, the project, esp32emu and the
 #           project's esp32* sibling: uncommitted changes and new files too,
 #           not what .gitignore leaves out) into the Pi's ~/Development,
 #           through git (no rsync here): each tree a commit made with an index
@@ -31,12 +31,12 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true   # set -e: a program failing ends the script
 
 $project = "$($args[0])"
-if (-not $project) { throw 'project, e.g. rpi5zx' }
+if (-not $project) { throw 'project, e.g. sdlzx' }
 $what = $args.Count -gt 1 ? "$($args[1])" : 'build'
 $rest = @($args | Select-Object -Skip 2 | ForEach-Object { "$_" })
 $pi = $env:RPI5_HOST ? $env:RPI5_HOST : 'robert-pi5'
 $dev = Split-Path (Split-Path $PSScriptRoot)
-$sibling = 'esp32' + ($project -replace '^rpi5', '')
+$sibling = 'esp32' + ($project -replace '^sdl', '')
 
 # a word for the Pi's shell
 function ConvertTo-ShellWord([string]$s) { "'" + $s.Replace("'", "'\''") + "'" }
@@ -64,7 +64,7 @@ function New-Snapshot([string]$dir) {
 
 # the trees into the Pi's ~/Development, then $then there
 function Sync-Trees([string]$then) {
-    $repos = foreach ($repo in @('rpi5emu', $project, 'esp32emu', $sibling) | Select-Object -Unique) {
+    $repos = foreach ($repo in @('sdlemu', $project, 'esp32emu', $sibling) | Select-Object -Unique) {
         if (Test-Path "$dev/$repo/.git") { $repo }
         elseif (Test-Path "$dev/$repo") { Write-Warning "$repo isn't a git clone: not synced" }
     }

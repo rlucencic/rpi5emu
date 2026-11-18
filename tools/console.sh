@@ -1,7 +1,7 @@
 #!/bin/bash
 # tools/console.sh [-p port] 'cmd' ['@secs' | 'cmd' ...]
 #
-# Line commands to an rpi5* emulator's console on the Pi (127.0.0.1:6400 there,
+# Line commands to an sdl* emulator's console on the Pi (127.0.0.1:6400 there,
 # through ssh; RPI5_HOST, default robert-pi5): '@n' waits n seconds between
 # them; the answers come back at the end. E.g.
 #   tools/console.sh 'T 10 PRINT "HI"\n' @4 'T RUN\n' @2 's /tmp/a.png' i

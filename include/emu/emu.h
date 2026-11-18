@@ -1,7 +1,7 @@
 #pragma once
 
 /*
- * The emulator runtime on the Raspberry Pi 5 (64-bit Linux, SDL 3). A
+ * The SDL 3 emulator runtime for 64-bit Linux and macOS. A
  * machine (Spectrum, Amiga, ...) describes itself in an emu_machine_t, the
  * same interface as on the ESP32 boards (../esp32emu), and emu_main() does
  * the rest:
@@ -16,9 +16,9 @@
  *   console threads:  line commands from stdin and 127.0.0.1:<port>
  *
  * Where the boards have an SD card and NVS, the Pi has folders:
- *   emu_data_dir()    the "SD card": $RPI5EMU_HOME, else ~/rpi5emu (a
+ *   emu_data_dir()    the "SD card": $SDLEMU_HOME, else ~/sdlemu (a
  *                     folder for each machine: its disks, its roms/)
- *   settings          ~/.config/rpi5emu/settings.ini (emu/settings.h)
+ *   settings          ~/.config/sdlemu/settings.ini (emu/settings.h)
  *
  * Start-up: settings, reserve_memory(), storage(), the remembered disks, the
  * images named on the command line, the window, sound, start(). When
