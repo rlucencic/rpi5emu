@@ -199,6 +199,27 @@ plus `settings.h` (NVS's place) and `log.h` (`EMU_LOGx` for `ESP_LOGx`).
 - Pipewire on the Pi without a monitor plays into `auto_null`: the sound
   runs (the stream is there) but nothing is heard.
 
+## To do
+
+- **NEXT PLANNED IMPLEMENTATION — Oric Atmos (1984) emulator (`rpi5oric`)**
+
+  Develop alongside `esp32oric` (ESP32-S3). Follow the existing sibling-project
+  layout by compiling the portable `esp32oric` machine core and integrating
+  with `rpi5emu` through `emu_machine_t`. Optimize for Raspberry Pi 5 with
+  native display and audio output through SDL 3, USB and Bluetooth keyboard
+  support, and accurate timing for high software compatibility. Share
+  emulator design concepts, compatibility tests, and technical
+  documentation with `esp32oric` where practical.
+
+  - MOS 6502A CPU at 1 MHz, 48 KB RAM, 16 KB ROM, and memory banking.
+  - Oric ULA with accurate video attributes, 40×28 text, and 240×200
+    high-resolution graphics.
+  - AY-3-8912 three-channel sound and MOS 6522 VIA with timers and interrupts.
+  - Oric keyboard emulation and cassette support for TAP files. Microdisc
+    floppy disk emulation is optional.
+  - Compatibility with Oric Atmos BASIC 1.1 and testing with original Oric
+    software.
+
 ## Working with the user
 
 - Expects changes built and checked on the Pi, then a short report of what
